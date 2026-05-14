@@ -4664,7 +4664,11 @@ static void ggml_backend_sycl_graph_compute_impl(ggml_backend_sycl_context * syc
     const dpct::queue_ptr stream = &dpct::get_default_queue();
 
     for (int i = 0; i < cgraph->n_nodes; i++) {
+#ifdef GGML_SYCL_F16
+        if(i%60==0){
+#else
         if(i%256==0){
+#endif // GGML_SYCL_F16
             GGML_SYCL_DEBUG("[SYCL] %s wait()\n", __func__);
             SYCL_CHECK(CHECK_TRY_ERROR((stream)->wait()));
         }
