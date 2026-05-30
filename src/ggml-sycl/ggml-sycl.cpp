@@ -4758,7 +4758,7 @@ static void ggml_backend_sycl_graph_compute_impl(ggml_backend_sycl_context * syc
         if ((node->flags & GGML_TENSOR_FLAG_COMPUTE) == 0) {
             continue;
         }
-        if(cnt++%60==0){
+        if(cnt++%32==0){
             GGML_SYCL_DEBUG("[SYCL] %s wait()\n", __func__);
             SYCL_CHECK(CHECK_TRY_ERROR((stream)->wait()));
         }
