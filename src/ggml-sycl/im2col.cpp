@@ -82,12 +82,28 @@ static void im2col_sycl(const float *   x,
     const int64_t num_blocks = (IC_KH_KW + SYCL_IM2COL_BLOCK_SIZE - 1) / SYCL_IM2COL_BLOCK_SIZE;
     const int64_t N_OH = N * OH;
     const int64_t KH_KW = KW*KH;
+#ifdef false
     dpct::dim3    block_nums(num_blocks, OW, MIN(N_OH, MAX_GRIDDIM_Z));
     /*
     DPCT1049:73: The work-group size passed to the SYCL kernel may exceed the limit. To get the device limit, query info::device::max_work_group_size. Adjust the work-group size if needed.
     */
     stream->parallel_for(sycl::nd_range<3>(block_nums * sycl::range<3>(1, 1, MIN(IC_KH_KW, SYCL_IM2COL_BLOCK_SIZE)),
                                            sycl::range<3>(1, 1, MIN(IC_KH_KW, SYCL_IM2COL_BLOCK_SIZE))),
+#else
+    // 従来のコードを以下のように書き換える
+    size_t local_z = 1;
+    size_t local_y = 1;
+    size_t local_x = MIN(IC_KH_KW, SYCL_IM2COL_BLOCK_SIZE);
+    // block_nums の各次元 (x, y, z) から、SYCLの (z, y, x) に正しくマッピングしつつ size_t で計算
+    size_t global_z = (size_t)MIN(N_OH, MAX_GRIDDIM_Z) * local_z; // MIN(N_OH, MAX_GRIDDIM_Z)
+    size_t global_y = (size_t)OW * local_y; // OW
+    size_t global_x = (size_t)num_blocks * local_x; // num_blocks * local_x
+    sycl::range<3> global_range(global_z, global_y, global_x);
+    sycl::range<3> local_range(local_z, local_y, local_x);
+    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%ld OW:%ld N_OH:%ld\n", __func__, num_blocks, OW, N_OH);
+    GGML_SYCL_DEBUG("[SYCL] %s global(%ld, %ld, %ld) local(%ld, %ld, %ld)\n", __func__, global_z, global_y, global_x, local_z, local_y, local_x);
+    stream->parallel_for(sycl::nd_range<3>(global_range, local_range),
+#endif
                          [=](sycl::nd_item<3> item_ct1) {
                              im2col_kernel(x, dst, IC, IW, IH, OH, OW, KW, KH, IC_IH_IW, IH_IW, N_OH, KH_KW, IC_KH_KW,
                                            s0, s1, p0, p1, d0, d1);
