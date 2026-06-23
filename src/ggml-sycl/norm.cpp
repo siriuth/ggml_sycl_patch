@@ -85,10 +85,12 @@ static void group_norm_f32(const float* x, float* dst, const int group_size, con
         if (lane_id == 0) {
             s_sum[warp_id] = tmp;
         }
+        //GGML_SYCL_DEBUG("[SYCL] %s DPCT1118:1\n", __func__);
         /*
         DPCT1118:1: SYCL group functions and algorithms must be encountered in
         converged control flow. You may need to adjust the code.
         */
+        //GGML_SYCL_DEBUG("[SYCL] %s DPCT1065:54\n", __func__);
         /*
         DPCT1065:54: Consider replacing sycl::nd_item::barrier() with
         sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
@@ -120,10 +122,12 @@ static void group_norm_f32(const float* x, float* dst, const int group_size, con
         if (lane_id == 0) {
             s_sum[warp_id] = tmp;
         }
+        //GGML_SYCL_DEBUG("[SYCL] %s DPCT1118:2\n", __func__);
         /*
         DPCT1118:2: SYCL group functions and algorithms must be encountered in
         converged control flow. You may need to adjust the code.
         */
+        //GGML_SYCL_DEBUG("[SYCL] %s DPCT1065:55\n", __func__);
         /*
         DPCT1065:55: Consider replacing sycl::nd_item::barrier() with
         sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
@@ -237,6 +241,7 @@ static void norm_f32_sycl(const float * x, float * dst, const int ncols, const i
         const int64_t stride_row, const int64_t stride_channel, const int64_t stride_sample,
         const float eps, queue_ptr stream, int device) {
 
+    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
     const sycl::range<3> global_dims(nsamples, nchannels, nrows);
     if (ncols < 1024) {
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
@@ -253,6 +258,7 @@ static void norm_f32_sycl(const float * x, float * dst, const int ncols, const i
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
+        GGML_SYCL_DEBUG("[SYCL] %s DPCT1049:17\n", __func__);
         /*
         DPCT1049:17: The work-group size passed to the SYCL kernel may exceed
         the limit. To get the device limit, query
@@ -275,6 +281,7 @@ static void group_norm_f32_sycl(const float* x, float* dst,
     const int num_groups, const float eps, const int group_size,
     const int ne_elements, queue_ptr stream, int device) {
     if (group_size < 1024) {
+        GGML_SYCL_DEBUG("[SYCL] %s DPCT1118,DPCT1065 in group_norm_f32\n", __func__);
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
         stream->submit([&](sycl::handler& cgh) {
             const float eps_ct4 = eps;
@@ -293,11 +300,13 @@ static void group_norm_f32_sycl(const float* x, float* dst,
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
+        GGML_SYCL_DEBUG("[SYCL] %s DPCT1049:18\n", __func__);
         /*
         DPCT1049:18: The work-group size passed to the SYCL kernel may exceed
         the limit. To get the device limit, query
         info::device::max_work_group_size. Adjust the work-group size if needed.
         */
+        GGML_SYCL_DEBUG("[SYCL] %s DPCT1118,DPCT1065 in group_norm_f32\n", __func__);
 
         stream->submit([&](sycl::handler& cgh) {
             sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
@@ -338,11 +347,13 @@ static void rms_norm_f32_sycl(const float* x, float* dst, const int ncols, const
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
+        GGML_SYCL_DEBUG("[SYCL] %s DPCT1049:19\n", __func__);
         /*
         DPCT1049:19: The work-group size passed to the SYCL kernel may exceed
         the limit. To get the device limit, query
         info::device::max_work_group_size. Adjust the work-group size if needed.
         */
+        GGML_SYCL_DEBUG("[SYCL] %s DPCT1118,DPCT1065 in group_norm_f32\n", __func__);
         stream->submit([&](sycl::handler& cgh) {
             sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
                 cgh);
