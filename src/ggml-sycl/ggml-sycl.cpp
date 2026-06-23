@@ -78,6 +78,18 @@
 #define MEM_SIZE_2M	0x00200000
 #define MEM_SIZE_1G	0x40000000
 
+//#define SYCL_SCALE_WORK_GROUP_NUM 1
+//#define SYCL_SCALE_WORK_GROUP_NUM 256
+//#define SYCL_SCALE_WORK_GROUP_NUM 512
+#define SYCL_SCALE_WORK_GROUP_NUM 999999 // 大きいサイズでシステムの最大値を取る。すべてこれでいいような気がするが、個別に設定できることでいいことがあるかもしれない。
+                                         // 理屈としては、この制限に引っかかると、GPUに分割して投げるので、オーバーへっとがかかってくるようになる。
+#define SYCL_SCALE_WORK_GROUP_SIZE 128 // best
+//#define SYCL_SCALE_WORK_GROUP_SIZE 256
+//#define SYCL_SCALE_WORK_GROUP_SIZE 512
+//#define SYCL_SCALE_SUB_GROUP_SIZE 8
+//#define SYCL_SCALE_SUB_GROUP_SIZE 16
+#define SYCL_SCALE_SUB_GROUP_SIZE 32 // best
+
 static bool g_sycl_loaded = false;
 int g_ggml_sycl_debug = 0;
 int g_ggml_sycl_disable_optimize = 0;
@@ -1998,10 +2010,24 @@ static void diag_mask_inf_f32(const float * x, float * dst, const int ncols, con
     dst[i] = x[i] - (col > n_past + row % rows_per_channel) * FLT_MAX;
 }
 
+static void scale_f32_one(const float * x, float * dst, const float scale, const float bias,
+                      const int k,
+                      const int offset,
+                      const sycl::nd_item<1> &item_ct1) {
+    const int i = item_ct1.get_global_id(0) + offset;
+
+    if (i >= k) {
+        return;
+    }
+
+    dst[i] = scale * x[i] + bias;
+}
+
 static void scale_f32(const float * x, float * dst, const float scale, const float bias, const int k,
                       const sycl::nd_item<3> &item_ct1) {
-    const int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
-                  item_ct1.get_local_id(2);
+//    const int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) +
+//                  item_ct1.get_local_id(2);
+    const int i = item_ct1.get_global_id(2);
 
     if (i >= k) {
         return;
@@ -2058,17 +2084,53 @@ static void ggml_mul_mat_vec_nc_f16_f32_sycl(
 
 static void scale_f32_sycl(const float *x, float *dst, const float scale, const float bias,
                            const int k, queue_ptr stream) {
-    const int num_blocks = (k + SYCL_SCALE_BLOCK_SIZE - 1) / SYCL_SCALE_BLOCK_SIZE;
-    stream->parallel_for(
-        sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks) *
-                              sycl::range<3>(1, 1, SYCL_SCALE_BLOCK_SIZE),
-                          sycl::range<3>(1, 1, SYCL_SCALE_BLOCK_SIZE)),
-        [=](sycl::nd_item<3> item_ct1) {
-            scale_f32(x, dst, scale, bias, k, item_ct1);
-        });
+    sycl::device dev = stream->get_device();
+    const int64_t max_work_group_size = dev.get_info<sycl::info::device::max_work_group_size>();
+    if(true){
+        GGML_SYCL_DEBUG("[SYCL] %s k:%d max_work_group_size:%ld\n", __func__, k, max_work_group_size);
+
+
+        // サブグループ単位に丸める（切り上げ）
+        // これにより処理単位がsub group単位であることを保証する。
+        const int sub_group_cnt = (k + SYCL_SCALE_SUB_GROUP_SIZE - 1) / SYCL_SCALE_SUB_GROUP_SIZE;
+        const int world = sub_group_cnt * SYCL_SCALE_SUB_GROUP_SIZE;
+
+        const int workgroup_cnt = (world + SYCL_SCALE_WORK_GROUP_SIZE - 1) / SYCL_SCALE_WORK_GROUP_SIZE;
+
+        int i = 0;
+        while(i < workgroup_cnt){
+            // 最後の端数の処理で「Non-uniform work-groups are not supported by the target device」例外が発生する可能性がある。
+            // もしかすると k が ワークグループサイズより小さいときにエラーになる可能性もある。
+            // 理屈ではありえないが…でもありえないことがエラーとなっているので用心した方がいい…。
+            const int local = SYCL_SCALE_WORK_GROUP_SIZE;
+            const int global = MAX(MIN(workgroup_cnt - i, MIN(SYCL_SCALE_WORK_GROUP_NUM, max_work_group_size)), 1);
+            //GGML_SYCL_DEBUG("[SYCL] %s i:%d global:%d local:%d\n", __func__, i, global, local);
+            dpct::has_capability_or_fail(stream->get_device(), {sycl::aspect::fp16});
+
+            stream->parallel_for(
+                sycl::nd_range<1>(global*local, local),
+                [=](sycl::nd_item<1> item_ct1)
+                [[sycl::reqd_sub_group_size(SYCL_SCALE_SUB_GROUP_SIZE)]]
+                {
+                    // 処理の範囲外の呼び出しも行うので処理内での処理範囲チェックのキャンセルは必須
+                    scale_f32_one(x, dst, scale, bias, k,
+                        i * SYCL_SCALE_WORK_GROUP_SIZE,
+                        item_ct1);
+                });
+            i += global;
+        }
+    }else{
+        const int num_blocks = (k + SYCL_SCALE_BLOCK_SIZE - 1) / SYCL_SCALE_BLOCK_SIZE;
+        stream->parallel_for(
+            sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks) *
+                                  sycl::range<3>(1, 1, SYCL_SCALE_BLOCK_SIZE),
+                              sycl::range<3>(1, 1, SYCL_SCALE_BLOCK_SIZE)),
+            [=](sycl::nd_item<3> item_ct1) {
+                scale_f32(x, dst, scale, bias, k, item_ct1);
+            });
+    }
 }
-
-
+    
 static void sum_rows_f32_sycl(const float *x, float *dst, const int ncols,
                               const int nrows, queue_ptr stream) {
     const sycl::range<3> block_dims(1, 1, WARP_SIZE);
