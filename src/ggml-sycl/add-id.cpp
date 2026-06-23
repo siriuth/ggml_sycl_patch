@@ -60,6 +60,15 @@ void ggml_sycl_add_id(ggml_backend_sycl_context& ctx, ggml_tensor* dst) {
 
   int threads = std::min((unsigned int)ne00, max_work_group_size);  // cols
 
+        GGML_SYCL_DEBUG("[SYCL] %s max_work_group_size:%ud ne[%zd, %zd] nb0[%zd, %zd] nb1[%zd, %zd]\n", __func__,
+                max_work_group_size,
+                ne0, ne1, //ne2, ne3,
+                //ne00, ne01, ne02, ne03,
+                //ne10, ne11, ne12, ne13,
+                nb00, nb01, //nb02, nb03,
+                nb10, nb11//, nb12, nb13,
+                //nb0, nb1, nb2, nb3
+        );
   ctx.stream()->parallel_for(
       sycl::nd_range<3>(
           sycl::range<3>(1, ne02, ne01) * sycl::range<3>(1, 1, threads),
