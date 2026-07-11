@@ -2054,8 +2054,13 @@ void ggml_sycl_cpy(ggml_backend_sycl_context & ctx, const ggml_tensor * src0, co
                                                   nb12, nb13, main_stream);
 #endif
     } else if (src0->type == GGML_TYPE_F32 && src1->type == GGML_TYPE_F32) {
-        ggml_cpy_f32_f32_sycl(src0_ddc, src1_ddc, ne, ne00, ne01, ne02, nb00, nb01, nb02, nb03, ne10, ne11, ne12, nb10,
-                              nb11, nb12, nb13, main_stream);
+        ggml_cpy_f32_f32_sycl(src0_ddc, src1_ddc,
+            ne,
+            ne00, ne01, ne02, ne03,
+            nb00, nb01, nb02, nb03,
+            ne10, ne11, ne12, ne13,
+            nb10, nb11, nb12, nb13,
+            main_stream);
     } else if (src0->type == GGML_TYPE_F32 && src1->type == GGML_TYPE_F16) {
         ggml_cpy_f32_f16_sycl(src0_ddc, src1_ddc, ne,
             ne00, ne01, ne02, ne03,
