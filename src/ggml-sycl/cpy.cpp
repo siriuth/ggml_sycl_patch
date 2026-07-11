@@ -348,7 +348,6 @@ template <cpy_kernel_t cpy_blck, int qk>
 static void cpy_f32_q(const char * cx, char * cdst, const int ne, const int ne00, const int ne01, const int ne02,
                       const int nb00, const int nb01, const int nb02, const int nb03, const int ne10, const int ne11,
                       const int ne12, const int nb10, const int nb11, const int nb12, const int nb13,
-                      const int ne000102, const int ne101112,
                       const sycl::nd_item<3> & item_ct1) {
     const int i = (item_ct1.get_local_range(2) * item_ct1.get_group(2) + item_ct1.get_local_id(2)) * qk;
 
@@ -357,14 +356,14 @@ static void cpy_f32_q(const char * cx, char * cdst, const int ne, const int ne00
     }
 
 
-//    const int i03      = i / (ne00 * ne01 * ne02);
-//    const int i02      = (i - i03 * ne00 * ne01 * ne02) / (ne00 * ne01);
-//    const int i01      = (i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00) / ne00;
-//    const int i00      = i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00 - i01 * ne00;
-    const int i03      = i / (ne000102);
-    const int i02      = (i - i03 * ne000102) / (ne00 * ne01);
-    const int i01      = (i - i03 * ne000102 - i02 * ne01 * ne00) / ne00;
-    const int i00      = i - i03 * ne000102 - i02 * ne01 * ne00 - i01 * ne00;
+    const int i03      = i / (ne00 * ne01 * ne02);
+    const int i02      = (i - i03 * ne00 * ne01 * ne02) / (ne00 * ne01);
+    const int i01      = (i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00) / ne00;
+    const int i00      = i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00 - i01 * ne00;
+    //const int i03      = i / (ne000102);
+    //const int i02      = (i - i03 * ne000102) / (ne00 * ne01);
+    //const int i01      = (i - i03 * ne000102 - i02 * ne01 * ne00) / ne00;
+    //const int i00      = i - i03 * ne000102 - i02 * ne01 * ne00 - i01 * ne00;
     const int x_offset = i00 * nb00 + i01 * nb01 + i02 * nb02 + i03 * nb03;
 
 //    const int i13        = i / (ne10 * ne11 * ne12);
