@@ -82,6 +82,7 @@ static void cpy_1_i32_f32(const char * cxi, char * cdsti) {
 
     *dsti = (float) *xi;
 }
+
 #ifdef GGML_SYCL_HAS_BF16
 static void cpy_1_f32_bf16(const char * cxi, char * cdsti) {
     const float * xi   = (const float *) cxi;
@@ -1303,7 +1304,9 @@ static void ggml_cpy_mxfp4_f32_sycl(const char * cx, char * cdst, const int ne, 
         sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks), sycl::range<3>(1, 1, 1)), [=](sycl::nd_item<3> item_ct1) {
             cpy_q_f32<cpy_blck_q_f32<dequantize_mxfp4, QK_MXFP4>, QK_MXFP4>(cx, cdst, ne, ne00, ne01, ne02, nb00,
                                                                              nb01, nb02, nb03, ne10, ne11, ne12,
-                                                                             nb10, nb11, nb12, nb13, item_ct1);
+                                                                             nb10, nb11, nb12, nb13,
+                                                                             ne000102, ne101112,
+                                                                             item_ct1);
         });
 }
 
