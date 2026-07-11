@@ -120,8 +120,10 @@ static void get_rows_sycl(ggml_backend_sycl_context & ctx, const ggml_tensor *sr
 
     GGML_ASSERT(ne00 % 2 == 0);
 
+                GGML_SYCL_DEBUG("[SYCL] %s begin .WaitForSubmit()\n", __func__);
                 SyclQueueEventWatcher::getInstance().WaitForSubmit();
 
+                GGML_SYCL_DEBUG("[SYCL] %s begin .parallel_for()\n", __func__);
                 auto e =
     stream->parallel_for(sycl::nd_range<3>(block_nums * block_dims, block_dims),
                          [=](sycl::nd_item<3> item_ct1) {
@@ -129,10 +131,15 @@ static void get_rows_sycl(ggml_backend_sycl_context & ctx, const ggml_tensor *sr
                                  src0_dd, src1_dd, dst_dd, ne00, ne12, s1, s2,
                                  s3, nb01, nb02, nb03, s10, s11, s12, item_ct1);
                          });
+                GGML_SYCL_DEBUG("[SYCL] %s end .parallel_for() begin .SetEvent()\n", __func__);
                 SyclQueueEventWatcher::getInstance().SetEvent(e);
+
+                GGML_SYCL_DEBUG("[SYCL] %s end .SetEvent()\n", __func__);
 
     GGML_UNUSED(dst);
     GGML_UNUSED(ctx);
+
+    GGML_SYCL_DEBUG("[SYCL] %s begin return\n", __func__);
 }
 
 template <typename src0_t, typename dst_t>
@@ -162,7 +169,9 @@ static void get_rows_sycl_float(ggml_backend_sycl_context & ctx, const ggml_tens
         dpct::has_capability_or_fail(stream->get_device(),
                                      {sycl::aspect::fp16});
 
+                GGML_SYCL_DEBUG("[SYCL] %s begin .WaitForSubmit()\n", __func__);
                 SyclQueueEventWatcher::getInstance().WaitForSubmit();
+                GGML_SYCL_DEBUG("[SYCL] %s begin .parallel_for()\n", __func__);
                 auto e =
         stream->parallel_for(
             sycl::nd_range<3>(block_nums * block_dims, block_dims),
@@ -170,11 +179,14 @@ static void get_rows_sycl_float(ggml_backend_sycl_context & ctx, const ggml_tens
                 k_get_rows_float(src0_dd, src1_dd, dst_dd, ne00, ne12, s1, s2,
                                  s3, nb01, nb02, nb03, s10, s11, s12, item_ct1);
             });
+                GGML_SYCL_DEBUG("[SYCL] %s end parallel_for() begin .SetEvent()\n", __func__);
                 SyclQueueEventWatcher::getInstance().SetEvent(e);
+                GGML_SYCL_DEBUG("[SYCL] %s end .SetEvent()\n", __func__);
     }
 
     GGML_UNUSED(dst);
     GGML_UNUSED(ctx);
+    GGML_SYCL_DEBUG("[SYCL] %s begin exit\n", __func__);
 }
 
 void ggml_sycl_op_get_rows(ggml_backend_sycl_context & ctx, ggml_tensor * dst) {
