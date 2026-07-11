@@ -366,14 +366,14 @@ static void cpy_f32_q(const char * cx, char * cdst, const int ne, const int ne00
     //const int i00      = i - i03 * ne000102 - i02 * ne01 * ne00 - i01 * ne00;
     const int x_offset = i00 * nb00 + i01 * nb01 + i02 * nb02 + i03 * nb03;
 
-//    const int i13        = i / (ne10 * ne11 * ne12);
-//    const int i12        = (i - i13 * ne10 * ne11 * ne12) / (ne10 * ne11);
-//    const int i11        = (i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11) / ne10;
-//    const int i10        = i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11 - i11 * ne10;
-    const int i13        = i / (ne101112);
-    const int i12        = (i - i13 * ne101112) / (ne10 * ne11);
-    const int i11        = (i - i13 * ne101112 - i12 * ne10 * ne11) / ne10;
+    const int i13        = i / (ne10 * ne11 * ne12);
+    const int i12        = (i - i13 * ne10 * ne11 * ne12) / (ne10 * ne11);
+    const int i11        = (i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11) / ne10;
     const int i10        = i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11 - i11 * ne10;
+    //const int i13        = i / (ne101112);
+    //const int i12        = (i - i13 * ne101112) / (ne10 * ne11);
+    //const int i11        = (i - i13 * ne101112 - i12 * ne10 * ne11) / ne10;
+    //const int i10        = i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11 - i11 * ne10;
     const int dst_offset = (i10 / qk) * nb10 + i11 * nb11 + i12 * nb12 + i13 * nb13;
 
     cpy_blck(cx + x_offset, cdst + dst_offset);
