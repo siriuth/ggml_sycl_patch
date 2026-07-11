@@ -1328,6 +1328,9 @@ static void ggml_cpy_f32_iq4_nl_sycl(const char * cx, char * cdst, const int ne,
                                                    ne12, nb10, nb11, nb12, nb13
                 , ne000102, ne101112
                 , item_ct1);
+        });
+}
+
 static void cpy_blck_f16_q4_0(const char * cxi, char * cdsti) {
     const sycl::half * xi = (const sycl::half *) cxi;
     float xf[QK4_0];
