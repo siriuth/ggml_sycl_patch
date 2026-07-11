@@ -124,7 +124,7 @@ template <cpy_kernel_t cpy_1>
 static void cpy_f32_f16(const char * cx, char * cdst, const int ne, const int ne00, const int ne01, const int ne02,
                         const int nb00, const int nb01, const int nb02, const int nb03, const int ne10, const int ne11,
                         const int ne12, const int nb10, const int nb11, const int nb12, const int nb13,
-                        const int ne000102, const int ne101112,
+//                        const int ne000102, const int ne101112,
                         const sycl::nd_item<3> & item_ct1) {
     const int i = item_ct1.get_local_range(2) * item_ct1.get_group(2) + item_ct1.get_local_id(2);
 
@@ -133,25 +133,25 @@ static void cpy_f32_f16(const char * cx, char * cdst, const int ne, const int ne
     }
 
     // determine indices i02/i12, i01/i11, i00/i10 as a function of index i of flattened tensor
-    // then combine those indices with the corresponding byte offsets to get the total offsets
-//    const int i03      = i / (ne00 * ne01 * ne02);
-//    const int i02      = (i - i03 * ne00 * ne01 * ne02) / (ne00 * ne01);
-//    const int i01      = (i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00) / ne00;
-//    const int i00      = i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00 - i01 * ne00;
-    const int i03      = i / (ne000102);
-    const int i02      = (i - i03 * ne000102) / (ne00 * ne01);
-    const int i01      = (i - i03 * ne000102 - i02 * ne01 * ne00) / ne00;
-    const int i00      = i - i03 * ne000102 - i02 * ne01 * ne00 - i01 * ne00;
+   // then combine those indices with the corresponding byte offsets to get the total offsets
+    const int i03      = i / (ne00 * ne01 * ne02);
+    const int i02      = (i - i03 * ne00 * ne01 * ne02) / (ne00 * ne01);
+    const int i01      = (i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00) / ne00;
+    const int i00      = i - i03 * ne00 * ne01 * ne02 - i02 * ne01 * ne00 - i01 * ne00;
+    //const int i03      = i / (ne000102);
+    //const int i02      = (i - i03 * ne000102) / (ne00 * ne01);
+    //const int i01      = (i - i03 * ne000102 - i02 * ne01 * ne00) / ne00;
+    //const int i00      = i - i03 * ne000102 - i02 * ne01 * ne00 - i01 * ne00;
     const int x_offset = i00 * nb00 + i01 * nb01 + i02 * nb02 + i03 * nb03;
 
-//    const int i13        = i / (ne10 * ne11 * ne12);
-//    const int i12        = (i - i13 * ne10 * ne11 * ne12) / (ne10 * ne11);
-//    const int i11        = (i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11) / ne10;
-//    const int i10        = i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11 - i11 * ne10;
-    const int i13        = i / (ne101112);
-    const int i12        = (i - i13 * ne101112) / (ne10 * ne11);
-    const int i11        = (i - i13 * ne101112 - i12 * ne10 * ne11) / ne10;
-    const int i10        = i - i13 * ne101112 - i12 * ne10 * ne11 - i11 * ne10;
+    const int i13        = i / (ne10 * ne11 * ne12);
+    const int i12        = (i - i13 * ne10 * ne11 * ne12) / (ne10 * ne11);
+    const int i11        = (i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11) / ne10;
+    const int i10        = i - i13 * ne10 * ne11 * ne12 - i12 * ne10 * ne11 - i11 * ne10;
+    //const int i13        = i / (ne101112);
+    //const int i12        = (i - i13 * ne101112) / (ne10 * ne11);
+    //const int i11        = (i - i13 * ne101112 - i12 * ne10 * ne11) / ne10;
+    //const int i10        = i - i13 * ne101112 - i12 * ne10 * ne11 - i11 * ne10;
     const int dst_offset = i10 * nb10 + i11 * nb11 + i12 * nb12 + i13 * nb13;
 
     cpy_1(cx + x_offset, cdst + dst_offset);
@@ -833,7 +833,7 @@ static void ggml_cpy_f32_f32_sycl(
             {
                 cpy_f32_f16<cpy_1_f32_f32>(cx, cdst, ne, ne00, ne01, ne02, nb00, nb01, nb02, nb03, ne10, ne11, ne12,
                                    nb10, nb11, nb12, nb13,
-                                   ne000102, ne101112,
+//                                   ne000102, ne101112,
                                    item_ct1);
             }
         );
@@ -887,7 +887,7 @@ const char * cx, char * cdst, const int ne,
                 {
                     cpy_f32_f16<cpy_1_f32_f16>(cx, cdst, ne, ne00, ne01, ne02, nb00, nb01, nb02, nb03, ne10, ne11, ne12,
                                            nb10, nb11, nb12, nb13
-                                         , ne000102, ne101112
+//                                         , ne000102, ne101112
                                          , item_ct1);
                 });
         }
@@ -1609,7 +1609,7 @@ static void ggml_cpy_f16_f16_sycl(const char * cx, char * cdst, const int ne, co
             [=](sycl::nd_item<3> item_ct1) {
                 cpy_f32_f16<cpy_1_f16_f16>(cx, cdst, ne, ne00, ne01, ne02, nb00, nb01, nb02, nb03, ne10, ne11, ne12,
                                            nb10, nb11, nb12, nb13
-                    , ne000102, ne101112
+//                    , ne000102, ne101112
                     , item_ct1);
             });
     }
@@ -1634,7 +1634,7 @@ static void ggml_cpy_i16_i16_sycl(const char * cx, char * cdst, const int ne, co
             [=](sycl::nd_item<3> item_ct1) {
                 cpy_f32_f16<cpy_1_i16_i16>(cx, cdst, ne, ne00, ne01, ne02, nb00, nb01, nb02, nb03, ne10, ne11, ne12,
                                            nb10, nb11, nb12, nb13
-                    , ne000102, ne101112
+//                    , ne000102, ne101112
                     , item_ct1);
             });
     }
@@ -1659,7 +1659,7 @@ static void ggml_cpy_i32_i32_sycl(const char * cx, char * cdst, const int ne, co
             [=](sycl::nd_item<3> item_ct1) {
                 cpy_f32_f16<cpy_1_i32_i32>(cx, cdst, ne, ne00, ne01, ne02, nb00, nb01, nb02, nb03, ne10, ne11, ne12,
                                            nb10, nb11, nb12, nb13
-                    , ne000102, ne101112
+//                    , ne000102, ne101112
                     , item_ct1);
             });
     }
