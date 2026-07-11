@@ -14,6 +14,7 @@
 #include "common.hpp"
 #include "dequantize.hpp"
 #include "getrows.hpp"
+#include "siriuth.hpp"
 
 
 template<int qk, int qr, dequantize_kernel_t dequantize_kernel, typename dst_t>
@@ -98,6 +99,7 @@ static void get_rows_sycl(ggml_backend_sycl_context & ctx, const ggml_tensor *sr
                           ggml_tensor *dst, const void *src0_dd,
                           const int32_t *src1_dd, float *dst_dd,
                           queue_ptr stream) {
+    GGML_SYCL_DEBUG("[SYCL] %s SYCL_GET_ROWS_BLOCK_SIZE:%d SYCL_GET_ROWS_BLOCK_SIZE:%d\n", __func__, SYCL_GET_ROWS_BLOCK_SIZE, SYCL_GET_ROWS_BLOCK_SIZE);
 
     GGML_TENSOR_BINARY_OP_LOCALS
 
@@ -118,12 +120,16 @@ static void get_rows_sycl(ggml_backend_sycl_context & ctx, const ggml_tensor *sr
 
     GGML_ASSERT(ne00 % 2 == 0);
 
+                SyclQueueEventWatcher::getInstance().WaitForSubmit();
+
+                auto e =
     stream->parallel_for(sycl::nd_range<3>(block_nums * block_dims, block_dims),
                          [=](sycl::nd_item<3> item_ct1) {
                              k_get_rows<qk, qr, dq>(
                                  src0_dd, src1_dd, dst_dd, ne00, ne12, s1, s2,
                                  s3, nb01, nb02, nb03, s10, s11, s12, item_ct1);
                          });
+                SyclQueueEventWatcher::getInstance().SetEvent(e);
 
     GGML_UNUSED(dst);
     GGML_UNUSED(ctx);
@@ -134,7 +140,7 @@ static void get_rows_sycl_float(ggml_backend_sycl_context & ctx, const ggml_tens
                                 const ggml_tensor *src1, ggml_tensor *dst,
                                 const src0_t *src0_dd, const int32_t *src1_dd,
                                 dst_t *dst_dd, queue_ptr stream) {
-
+    GGML_SYCL_DEBUG("[SYCL] %s SYCL_GET_ROWS_BLOCK_SIZE:%d SYCL_GET_ROWS_BLOCK_SIZE:%d\n", __func__, SYCL_GET_ROWS_BLOCK_SIZE, SYCL_GET_ROWS_BLOCK_SIZE);
     GGML_TENSOR_BINARY_OP_LOCALS
 
     const sycl::range<3> block_dims(1, 1, SYCL_GET_ROWS_BLOCK_SIZE);
@@ -156,12 +162,15 @@ static void get_rows_sycl_float(ggml_backend_sycl_context & ctx, const ggml_tens
         dpct::has_capability_or_fail(stream->get_device(),
                                      {sycl::aspect::fp16});
 
+                SyclQueueEventWatcher::getInstance().WaitForSubmit();
+                auto e =
         stream->parallel_for(
             sycl::nd_range<3>(block_nums * block_dims, block_dims),
             [=](sycl::nd_item<3> item_ct1) {
                 k_get_rows_float(src0_dd, src1_dd, dst_dd, ne00, ne12, s1, s2,
                                  s3, nb01, nb02, nb03, s10, s11, s12, item_ct1);
             });
+                SyclQueueEventWatcher::getInstance().SetEvent(e);
     }
 
     GGML_UNUSED(dst);
