@@ -56,6 +56,7 @@ static void conv_transpose_1d_f32_f32_sycl(
     const float *src0, const float *src1, float *dst,
     const queue_ptr& stream) {
 
+    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
     const int num_blocks = (output_size + SYCL_CONV_TRANPOSE_1D_BLOCK_SIZE - 1) / SYCL_CONV_TRANPOSE_1D_BLOCK_SIZE;
     const sycl::range<3> block_dims(1, 1, SYCL_CONV_TRANPOSE_1D_BLOCK_SIZE);
     const sycl::range<3> block_nums(1, 1, num_blocks);
@@ -73,6 +74,7 @@ static void conv_transpose_1d_f32_f32_sycl(
 
 void ggml_sycl_op_conv_transpose_1d(ggml_backend_sycl_context & ctx, ggml_tensor *dst) {
     scope_op_debug_print scope_dbg_print(__func__, dst, /*num_src=*/2);
+    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
     const ggml_tensor *src0 = dst->src[0];
     const ggml_tensor *src1 = dst->src[1];
     const float * src0_d = (const float *)src0->data;
@@ -98,4 +100,3 @@ void ggml_sycl_op_conv_transpose_1d(ggml_backend_sycl_context & ctx, ggml_tensor
         src1->ne[0], dst->ne[0],
         src0_d, src1_d, dst_d, stream);
 }
-
