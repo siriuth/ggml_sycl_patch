@@ -82,6 +82,7 @@ static __dpct_inline__ T op_elu(T x) {
     return (x > static_cast<T>(0.f)) ? x : op_expm1(x);
 }
 
+/* ==========
 template<typename T>
 static __dpct_inline__ T op_tanh(T x) {
     if constexpr (std::is_same_v<T, sycl::ext::oneapi::bfloat16>) {
@@ -118,6 +119,7 @@ template<typename T>
 static __dpct_inline__ T op_silu(T x) {
     return x / (static_cast<T>(1.0f) + op_exp(-x));
 }
+========= */
 
 template<typename T>
 static __dpct_inline__ T op_erf(T x) {
