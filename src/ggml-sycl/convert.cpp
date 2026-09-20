@@ -308,9 +308,8 @@ static void dequantize_row_q4_K_sycl(const void *vx, dst_t *y, const int64_t k,
 
         stream->submit([&](sycl::handler &cgh) {
             sycl::local_accessor<uint8_t, 1> scale_local_acc(sycl::range<1>(12), cgh);
-            cgh.parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, nb) * 
-                sycl::range<3>(1, 1, 32),
-                sycl::range<3>(1, 1, 32)),
+            cgh.parallel_for(sycl::nd_range<3>(
+                sycl::range<3>(1, 1, nb) * sycl::range<3>(1, 1, 32), sycl::range<3>(1, 1, 32)),
                 [=](sycl::nd_item<3> item_ct1)
                 [[sycl::reqd_sub_group_size(16)]]
                 {
@@ -889,32 +888,6 @@ static void dequantize_block_nc_sycl(const void *    vx,
 
 }
 
-/*
-template <typename src_t, typename dst_t>
-static void convert_unary_nc(const void * __restrict__ vx, dst_t * __restrict__ y,
-                          const int64_t ne00, const int64_t ne01,
-                          const sycl::nd_item<1> & item_ct1) {
-
-    const size_t offset = item_ct1.get_local_range(0) * item_ct1.get_group(0);
-    const int64_t i00 = offset + item_ct1.get_local_id(0);
-
-    //if (i00 >= ne00) {
-    //    return;
-    //}
-
-    const src_t * x = static_cast<const src_t *>(vx);
-    // vae 512x512 96.11s
-    const size_t max = MIN(item_ct1.get_local_range(0), (size_t)(ne00 - i00));
-    for (size_t i = item_ct1.get_local_id(0); i < max; i++) {
-        //const int64_t ix = item_ct1.get_local_range(0) * item_ct1.get_group(0) + i;
-        const size_t ix = offset + i;
-        //const int64_t iy = ix;
-        //item_ct1.barrier();
-        y[ix] = static_cast<dst_t>(x[ix]);
-    }
-}
-*/
-
 template <typename src_t, typename dst_t>
 static void convert_unary_nc_one_offset(
     const void * __restrict__ vx, dst_t * __restrict__ y,
@@ -956,6 +929,32 @@ static void convert_unary_nc_block(const void * __restrict__ vx, dst_t * __restr
     for (size_t i = 0; i < SYCL_UNARRAY_BLOCK_SIZE; i++) {
         const size_t ix = offset + i;
         //const size_t ix = item_ct1.get_local_id(0) + i;
+        //item_ct1.barrier();
+        y[ix] = static_cast<dst_t>(x[ix]);
+    }
+}
+*/
+
+/*
+template <typename src_t, typename dst_t>
+static void convert_unary_nc(const void * __restrict__ vx, dst_t * __restrict__ y,
+                          const int64_t ne00, const int64_t ne01,
+                          const sycl::nd_item<1> & item_ct1) {
+
+    const size_t offset = item_ct1.get_local_range(0) * item_ct1.get_group(0);
+    const int64_t i00 = offset + item_ct1.get_local_id(0);
+
+    //if (i00 >= ne00) {
+    //    return;
+    //}
+
+    const src_t * x = static_cast<const src_t *>(vx);
+    // vae 512x512 96.11s
+    const size_t max = MIN(item_ct1.get_local_range(0), (size_t)(ne00 - i00));
+    for (size_t i = item_ct1.get_local_id(0); i < max; i++) {
+        //const int64_t ix = item_ct1.get_local_range(0) * item_ct1.get_group(0) + i;
+        const size_t ix = offset + i;
+        //const int64_t iy = ix;
         //item_ct1.barrier();
         y[ix] = static_cast<dst_t>(x[ix]);
     }
