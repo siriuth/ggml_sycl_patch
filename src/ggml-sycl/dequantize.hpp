@@ -1182,6 +1182,7 @@ static void dequantize_block_q4_K_offset(const void * __restrict__ vx, dst_t * _
 //        id -= item_ct1.get_local_range(0);
 //        i ++;
 //    }
+    GGML_UNUSED(group_offset);
 
     const int64_t id = item_ct1.get_global_id(0) + offset;
     const int64_t i = id / 32;
