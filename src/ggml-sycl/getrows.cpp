@@ -142,6 +142,7 @@ static void get_rows_sycl(ggml_backend_sycl_context & ctx, const ggml_tensor *sr
                           ggml_tensor *dst, const void *src0_dd,
                           const int32_t *src1_dd, float *dst_dd,
                           queue_ptr stream) {
+    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
 
     GGML_TENSOR_BINARY_OP_LOCALS
 
@@ -178,6 +179,7 @@ static void get_rows_sycl_f32(ggml_backend_sycl_context & ctx, const ggml_tensor
                               ggml_tensor *dst, const void *src0_dd,
                               const int32_t *src1_dd, float *dst_dd,
                               queue_ptr stream) {
+    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
 
     GGML_TENSOR_BINARY_OP_LOCALS
 
@@ -211,6 +213,7 @@ static void get_rows_sycl_float(ggml_backend_sycl_context & ctx, const ggml_tens
                                 const ggml_tensor *src1, ggml_tensor *dst,
                                 const src0_t *src0_dd, const int32_t *src1_dd,
                                 dst_t *dst_dd, queue_ptr stream) {
+    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
 
     GGML_TENSOR_BINARY_OP_LOCALS
 
@@ -281,7 +284,7 @@ static void get_rows_back_sycl_float(ggml_backend_sycl_context & ctx, const ggml
                                      const ggml_tensor * src1, ggml_tensor * dst,
                                      const src0_t * src0_dd, const int32_t * src1_dd,
                                      float * dst_dd, queue_ptr stream) {
-
+    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
     GGML_TENSOR_BINARY_OP_LOCALS
 
     GGML_ASSERT(ne02*ne03 == 1);
