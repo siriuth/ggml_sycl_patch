@@ -180,7 +180,7 @@ static void get_rows_sycl_f32(ggml_backend_sycl_context & ctx, const ggml_tensor
                               const int32_t *src1_dd, float *dst_dd,
                               queue_ptr stream) {
     GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
-    GGML_SYCL_DEBUG("[SYCL] %s ggml_element_size dst:%l src1:%ld\n", __func__, ggml_element_size(dst), ggml_element_size(src1));
+    GGML_SYCL_DEBUG("[SYCL] %s ggml_element_size dst:%ld src1:%ld\n", __func__, ggml_element_size(dst), ggml_element_size(src1));
 
     GGML_TENSOR_BINARY_OP_LOCALS
 
