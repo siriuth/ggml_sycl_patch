@@ -180,12 +180,16 @@ static void get_rows_sycl_f32(ggml_backend_sycl_context & ctx, const ggml_tensor
                               const int32_t *src1_dd, float *dst_dd,
                               queue_ptr stream) {
     GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
+    GGML_SYCL_DEBUG("[SYCL] %s ggml_element_size dst:%l src1:%ld\n", __func__, ggml_element_size(dst), ggml_element_size(src1));
 
     GGML_TENSOR_BINARY_OP_LOCALS
 
     const sycl::range<3> block_dims(1, 1, SYCL_GET_ROWS_BLOCK_SIZE);
     const int block_num_x = (ne00 + 2*SYCL_GET_ROWS_BLOCK_SIZE - 1) / (2*SYCL_GET_ROWS_BLOCK_SIZE);
     const sycl::range<3> block_nums(ne11 * ne12, ne10, block_num_x);
+
+    GGML_SYCL_DEBUG("[SYCL] %s SYCL_GET_ROWS_BLOCK_SIZE:%ld\n", __func__, SYCL_GET_ROWS_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne11:%ld ne12:%ld ne10:%ld block_num_x:%d\n", __func__, ne11, ne12, ne10, block_num_x);
 
     const size_t s1 = nb1 / ggml_element_size(dst);
     const size_t s2 = nb2 / ggml_element_size(dst);
@@ -194,6 +198,9 @@ static void get_rows_sycl_f32(ggml_backend_sycl_context & ctx, const ggml_tensor
     const size_t s10 = nb10 / ggml_element_size(src1);
     const size_t s11 = nb11 / ggml_element_size(src1);
     const size_t s12 = nb12 / ggml_element_size(src1);
+
+    GGML_SYCL_DEBUG("[SYCL] %s s1:%ld s2:%ld s3:%ld\n", __func__, s1, s2, s3);
+    GGML_SYCL_DEBUG("[SYCL] %s s10:%ld s11:%ld s12:%ld\n", __func__, s10, s11, s12);
 
     GGML_ASSERT(ne00 % 2 == 0);
 
