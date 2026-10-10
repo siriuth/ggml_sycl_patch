@@ -86,7 +86,8 @@ static void k_get_rows_f32(
         return;
     }
 
-    const size_t i01 = src1[i10*s10 + i11*s11 + i12*s12];
+    //const size_t i01 = src1[i10*s10 + i11*s11 + i12*s12];
+    const size_t i01 = 0;
 
     dst_t * dst_row = dst + i10*s1 + i11*s2 + i12*s3;
     const void * src0_row = (const char *)src0 + i01*nb01 + i11*nb02 + i12*nb03;
