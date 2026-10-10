@@ -70,15 +70,15 @@ static void k_get_rows_f32(
             size_t s10, size_t s11, size_t s12,
             const sycl::nd_item<3> &item_ct1) {
 
-    const int i00 = (item_ct1.get_group(2) * item_ct1.get_local_range(2) +
+    const size_t i00 = (item_ct1.get_group(2) * item_ct1.get_local_range(2) +
                      item_ct1.get_local_id(2)) *
                     2;
-    const int i10 = item_ct1.get_local_range(1) * item_ct1.get_group(1) +
+    const size_t i10 = item_ct1.get_local_range(1) * item_ct1.get_group(1) +
                     item_ct1.get_local_id(1);
-    const int i11 = (item_ct1.get_group(0) * item_ct1.get_local_range(0) +
+    const size_t i11 = (item_ct1.get_group(0) * item_ct1.get_local_range(0) +
                      item_ct1.get_local_id(0)) /
                     ne12;
-    const int i12 = (item_ct1.get_group(0) * item_ct1.get_local_range(0) +
+    const size_t i12 = (item_ct1.get_group(0) * item_ct1.get_local_range(0) +
                      item_ct1.get_local_id(0)) %
                     ne12;
 
@@ -91,10 +91,10 @@ static void k_get_rows_f32(
     dst_t * dst_row = dst + i10*s1 + i11*s2 + i12*s3;
     const void * src0_row = (const char *)src0 + i01*nb01 + i11*nb02 + i12*nb03;
 
-    const int ib = i00/qk;
-    const int iqs = (i00%qk)/qr;
-    const int iybs = i00 - i00%qk;
-    const int y_offset = qr == 1 ? 1 : qk/2;
+    const size_t ib = i00/qk;
+    const size_t iqs = (i00%qk)/qr;
+    const size_t iybs = i00 - i00%qk;
+    const size_t y_offset = qr == 1 ? 1 : qk/2;
 
     float v0;
     float v1;
