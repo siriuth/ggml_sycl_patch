@@ -64,6 +64,7 @@ template<int qk, int qr, dequantize_kernel_f32_t dequantize_kernel, typename dst
 static void k_get_rows_f32(
             const void * src0, const int32_t * src1, dst_t * dst,
             int64_t ne00,
+            int64_t ne01,
             int64_t ne12,
             size_t s1, size_t s2, size_t s3,
             size_t nb01, size_t nb02, size_t nb03,
@@ -88,6 +89,10 @@ static void k_get_rows_f32(
 
     const size_t i01 = src1[i10*s10 + i11*s11 + i12*s12];
  
+    if (i01 >= ne01) {
+        return;
+    }
+
     dst_t * dst_row = dst + i10*s1 + i11*s2 + i12*s3;
     const void * src0_row = (const char *)src0 + i01*nb01 + i11*nb02 + i12*nb03;
 
@@ -207,7 +212,7 @@ static void get_rows_sycl_f32(ggml_backend_sycl_context & ctx, const ggml_tensor
     stream->parallel_for(sycl::nd_range<3>(block_nums * block_dims, block_dims),
                          [=](sycl::nd_item<3> item_ct1) {
                              k_get_rows_f32<qk, qr, dq>(
-                                 src0_dd, src1_dd, dst_dd, ne00, ne12, s1, s2,
+                                 src0_dd, src1_dd, dst_dd, ne00, ne01, ne12, s1, s2,
                                  s3, nb01, nb02, nb03, s10, s11, s12, item_ct1);
                          });
 
