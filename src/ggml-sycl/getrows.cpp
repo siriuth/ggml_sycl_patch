@@ -347,6 +347,8 @@ void ggml_sycl_op_get_rows(ggml_backend_sycl_context & ctx, ggml_tensor * dst) {
     GGML_ASSERT(dst->src[1]->nb[0] == ggml_type_size(dst->src[1]->type));
     GGML_ASSERT(dst->nb[0] == ggml_type_size(dst->type));
 
+    SYCL_CHECK(ggml_sycl_set_device(ctx.device));
+
     const int32_t * src1_i32 = (const int32_t *) dst->src[1]->data;
     /* TODO: Refactor and remove duplicates */
     switch (dst->src[0]->type) {
