@@ -104,13 +104,13 @@ static void k_get_rows_f32(
     float v0;
     float v1;
 
-    //TEST OMIT
-    //dequantize_kernel(src0_row, ib, iqs, v0, v1);
-    v0 = 0.0f;
-    v1 = 0.0f;
+    dequantize_kernel(src0_row, ib, iqs, v0, v1);
+    //v0 = 0.0f;
+    //v1 = 0.0f;
 
-    dst_row[iybs + iqs + 0] = (dst_t) v0;
-    dst_row[iybs + iqs + y_offset] = (dst_t) v1;
+    //TEST OMIT
+    //dst_row[iybs + iqs + 0] = (dst_t) v0;
+    //dst_row[iybs + iqs + y_offset] = (dst_t) v1;
 }
 
 template<typename src0_t, typename dst_t>
