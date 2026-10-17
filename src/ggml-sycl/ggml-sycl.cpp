@@ -993,7 +993,7 @@ static void dev2dev_memcpy(int device_dst, sycl::queue &q_dst, int device_src, s
     //char *host_buf = (char *)malloc(size);
     //q_src.memcpy(host_buf, (const char *)ptr_src, size).wait();
     //q_dst.memcpy((char *)ptr_dst, host_buf, size).wait();
-    /free(host_buf);
+    //free(host_buf);
     memcpy_host_forward(q_dst, q_src, ptr_dst, ptr_src, size);
 }
 
@@ -2242,10 +2242,10 @@ std::unique_ptr<ggml_sycl_pool> ggml_backend_sycl_context::new_pool_for_device(q
     return std::unique_ptr<ggml_sycl_pool>(new ggml_sycl_pool_leg(qptr, device));
 }
 
-
-std::unique_ptr<ggml_sycl_fattn_kv_buffers> ggml_backend_sycl_context::new_fattn_kv_buffers(queue_ptr qptr, int device) {
-    return std::unique_ptr<ggml_sycl_fattn_kv_buffers>(new ggml_sycl_fattn_kv_buffers(qptr, device));
-}
+//
+//std::unique_ptr<ggml_sycl_fattn_kv_buffers> ggml_backend_sycl_context::new_fattn_kv_buffers(queue_ptr qptr, int device) {
+//    return std::unique_ptr<ggml_sycl_fattn_kv_buffers>(new ggml_sycl_fattn_kv_buffers(qptr, device));
+//}
 
 /// kernels
 typedef void (*ggml_sycl_op_mul_mat_t)(
