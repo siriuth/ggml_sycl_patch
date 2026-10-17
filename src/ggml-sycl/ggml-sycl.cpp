@@ -3411,19 +3411,19 @@ inline void ggml_sycl_op_mul_mat_sycl(
                                          ? (const sycl::half *)src0_dd_i
                                          : src0_as_f16.get();
 
-        ggml_sycl_pool_alloc<sycl::half> src1_as_f16(ctx.pool());
-        if (src1->type != GGML_TYPE_F16) {
-            scope_op_debug_print scope_dbg_print(__func__, "/to_fp16_sycl", dst, /*num_src=*/2,
-                                                 " : converting src1 to fp16");
-            const to_fp16_sycl_t to_fp16_sycl = ggml_get_to_fp16_sycl(src1->type, dst);
-            GGML_ASSERT(to_fp16_sycl != nullptr);
-            size_t ne = src1_ncols*ne10;
-            src1_as_f16.alloc(ne);
-            to_fp16_sycl(src1_ddf_i, src1_as_f16.get(), ne, stream);
-        }
-        const sycl::half *src1_ptr = src1->type == GGML_TYPE_F16
-                ? (const sycl::half *)src1->data + src1_padded_row_size
-                                         : src1_as_f16.get();
+        //ggml_sycl_pool_alloc<sycl::half> src1_as_f16(ctx.pool());
+        //if (src1->type != GGML_TYPE_F16) {
+        //    scope_op_debug_print scope_dbg_print(__func__, "/to_fp16_sycl", dst, /*num_src=*/2,
+        //                                         " : converting src1 to fp16");
+        //    const to_fp16_sycl_t to_fp16_sycl = ggml_get_to_fp16_sycl(src1->type, dst);
+        //    GGML_ASSERT(to_fp16_sycl != nullptr);
+        //    size_t ne = src1_ncols*ne10;
+        //    src1_as_f16.alloc(ne);
+        //    to_fp16_sycl(src1_ddf_i, src1_as_f16.get(), ne, stream);
+        //}
+        //const sycl::half *src1_ptr = src1->type == GGML_TYPE_F16
+        //        ? (const sycl::half *)src1->data + src1_padded_row_size
+        //                                 : src1_as_f16.get();
 
 #if GGML_SYCL_DNNL
         //if (g_ggml_sycl_enable_dnn) {
