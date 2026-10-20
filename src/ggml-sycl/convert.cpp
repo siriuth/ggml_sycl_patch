@@ -106,10 +106,9 @@ static void dequantize_block_sycl(const void *__restrict__ vx,
     ggml_sycl_adjusted_looper(world, local, SYCL_DEQUANTIZE_WORK_GROUP_NUM, stream,
         [=](int adjusted_global, int adjusted_local, int offset){
 
-       GGML_SYCL_DEBUG("[SYCL] %s global:%d local:%d offset:%d\n", __func__, adjusted_global, adjusted_local, offset);
-
+            //GGML_SYCL_DEBUG("[SYCL] %s global:%d local:%d offset:%d\n", __func__, adjusted_global, adjusted_local, offset);
             auto e =
-        stream->parallel_for(sycl::nd_range<1>(adjusted_global, adjusted_local),
+            stream->parallel_for(sycl::nd_range<1>(adjusted_global, adjusted_local),
                     [=](sycl::nd_item<1> item_ct1)
                     [[sycl::reqd_sub_group_size(SYCL_DEQUANTIZE_SUB_GROUP_SIZE)]] {
                         dequantize_block_offset<qk, qr, dequantize_kernel>(vx, y, k,
@@ -117,10 +116,10 @@ static void dequantize_block_sycl(const void *__restrict__ vx,
                             item_ct1
                         );
                     }
-        );
+            );
             SyclQueueEventWatcher::getInstance().SetEvent(e);
 
-    });
+        });
 
 }
 
