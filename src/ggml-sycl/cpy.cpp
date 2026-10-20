@@ -27,6 +27,7 @@
 // 2026/10/19 過去のソースからできる限りマージを行った
 //            z-image turbo q8_0モデルで純粋なsycl版とは出力が異なる。
 //            記憶だと、こちら側の方がCPU出力に近かったハズ。純粋なsycl版ではロスが発生している可能性が高い。
+//            Q2_Kで出力がおかしくなっている…
 //
 // 量子化部分は少し手を入れたが、仕様があやしいので動くのを確認したら実装しようと思う。
 // f32_f16 f32_f32 f16_f32以外のデバッグはできていない可能性が高い。
@@ -501,21 +502,17 @@ static void cpy_q_f32_opt(const char * cx, char * cdst, const int ne,
 }
 
 static void ggml_cpy_f16_f32_sycl(
-    const char * cx, char * cdst, const int ne  ,
+    const char * cx, char * cdst, const int ne,
     const int ne00, const int ne01, const int ne02, const int ne03,
     const int nb00, const int nb01, const int nb02, const int nb03,
     const int ne10, const int ne11, const int ne12, const int ne13,
     const int nb10, const int nb11, const int nb12, const int nb13,
     queue_ptr stream)
 {
-/*
-*/
-/*
-*/
-/*
-*/ 
     sycl::range<3> world(ne03*ne02, ne01, ne00);
     sycl::range<3> local(1, 1, SYCL_CPY_WORK_GROUP_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, SYCL_CPY_BLOCK_SIZE);
     if((ne00 > 0) && (ne00 == ne10) && (ne01 == ne11) && (ne02 == ne12) && (ne03 == ne13)){
         GGML_SYCL_DEBUG("[SYCL] %s same shape\n", __func__);
         ggml_sycl_looper(world, local, SYCL_CPY_WORK_GROUP_NUM, stream,
@@ -577,6 +574,8 @@ static void ggml_cpy_f32_f32_sycl(
 {
     sycl::range<3> world(ne03*ne02, ne01, ne00);
     sycl::range<3> local(1, 1, SYCL_CPY_WORK_GROUP_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, SYCL_CPY_BLOCK_SIZE);
     if((ne00 > 0) && (ne00 == ne10) && (ne01 == ne11) && (ne02 == ne12) && (ne03 == ne13)){
         GGML_SYCL_DEBUG("[SYCL] %s same shape\n", __func__);
         ggml_sycl_looper(world, local, SYCL_CPY_WORK_GROUP_NUM, stream,
@@ -631,6 +630,8 @@ static void ggml_cpy_f32_f16_sycl(
     queue_ptr stream) {
     sycl::range<3> world(ne03*ne02, ne01, ne00);
     sycl::range<3> local(1, 1, SYCL_CPY_WORK_GROUP_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, SYCL_CPY_BLOCK_SIZE);
     if((ne00 > 0) && (ne00 == ne10) && (ne01 == ne11) && (ne02 == ne12) && (ne03 == ne13)){
         GGML_SYCL_DEBUG("[SYCL] %s same shape\n", __func__);
         ggml_sycl_looper(world, local, SYCL_CPY_WORK_GROUP_NUM, stream,
@@ -681,6 +682,8 @@ static void ggml_cpy_f32_i32_sycl(const char * cx, char * cdst, const int ne, co
     const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
     const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = (ne + SYCL_CPY_BLOCK_SIZE - 1) / SYCL_CPY_BLOCK_SIZE;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     {
@@ -725,6 +728,8 @@ static void ggml_cpy_f32_q8_0_sycl(
     queue_ptr stream) {
     GGML_ASSERT(ne % QK8_0 == 0);
     const int num_blocks = ceil_div(ne / QK8_0, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     sycl::range<3> world(ne03*ne02, ne01, ne00 / QK8_0);
     sycl::range<3> local(1, 1, SYCL_CPY_WORK_GROUP_SIZE);
 
@@ -756,9 +761,9 @@ static void ggml_cpy_q8_0_f32_sycl_save(const char * cx, char * cdst, const int 
                                    const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
                                    const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = ne;
-        GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                     , num_blocks, SYCL_CPY_BLOCK_SIZE);
-        const int ne000102 = ne00 * ne01 * ne02;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
+    const int ne000102 = ne00 * ne01 * ne02;
         const int ne101112 = ne10 * ne11 * ne12;
     stream->parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks), sycl::range<3>(1, 1, 1)),
                          [=](sycl::nd_item<3> item_ct1)
@@ -780,8 +785,8 @@ static void ggml_cpy_q8_0_f32_sycl(const char * cx, char * cdst, const int ne,
     GGML_ASSERT(ne % QK8_0 == 0);
     //const int num_blocks = ne;
     const int num_blocks = ceil_div(ne / QK8_0, SYCL_CPY_BLOCK_SIZE);
-    ////GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-    ////                 , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     GGML_SYCL_DEBUG("[SYCL] %s NON DEBUG!!\n", __func__);
@@ -825,6 +830,8 @@ static void ggml_cpy_q2_0_f32_sycl(const char * cx, char * cdst, const int ne, c
     const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK2_0 == 0);
     const int num_blocks = ceil_div(ne / QK2_0, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -848,8 +855,8 @@ static void ggml_cpy_f32_q4_0_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK4_0 == 0);
     //const int num_blocks = ne / QK4_0;
     const int num_blocks = ceil_div(ne / QK4_0, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                     , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -876,8 +883,8 @@ static void ggml_cpy_q4_0_f32_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK4_0 == 0);
     //const int num_blocks = ne;
     const int num_blocks = ceil_div(ne / QK4_0, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                    , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -904,8 +911,8 @@ static void ggml_cpy_f32_q4_1_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK4_1 == 0);
     //const int num_blocks = ne / QK4_1;
     const int num_blocks = ceil_div(ne / QK4_1, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                     , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -932,8 +939,8 @@ static void ggml_cpy_q4_1_f32_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK4_1 == 0);
     //const int num_blocks = ne;
     const int num_blocks = ceil_div(ne / QK4_1, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                     , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -960,8 +967,8 @@ static void ggml_cpy_f32_q5_0_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK5_0 == 0);
     //const int num_blocks = ne / QK5_0;
     const int num_blocks = ceil_div(ne / QK5_0, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                     , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -988,8 +995,8 @@ static void ggml_cpy_q5_0_f32_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK5_0 == 0);
     //const int num_blocks = ne;
     const int num_blocks = ceil_div(ne / QK5_0, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                    , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1016,8 +1023,8 @@ static void ggml_cpy_f32_q5_1_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK5_1 == 0);
     //const int num_blocks = ne / QK5_1;
     const int num_blocks = ceil_div(ne / QK5_1, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                    , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1044,8 +1051,8 @@ static void ggml_cpy_q5_1_f32_sycl(const char * cx, char * cdst, const int ne, c
     GGML_ASSERT(ne % QK5_1 == 0);
     //const int num_blocks = ne;
     const int num_blocks = ceil_div(ne / QK5_1, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                    , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1069,6 +1076,8 @@ static void ggml_cpy_mxfp4_f32_sycl(const char * cx, char * cdst, const int ne, 
                                     const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_MXFP4 == 0);
     const int num_blocks = ceil_div(ne / QK_MXFP4, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1093,8 +1102,8 @@ static void ggml_cpy_f32_iq4_nl_sycl(const char * cx, char * cdst, const int ne,
     GGML_ASSERT(ne % QK4_NL == 0);
     //const int num_blocks = ne / QK4_NL;
     const int num_blocks = ceil_div(ne / QK4_NL, SYCL_CPY_BLOCK_SIZE);
-    GGML_SYCL_DEBUG("[SYCL] %s num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
-                     , num_blocks, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     const int ne000102 = ne00 * ne01 * ne02;
     const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1152,6 +1161,8 @@ static void ggml_cpy_f16_q4_0_sycl(const char * cx, char * cdst, const int ne, c
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK4_0 == 0);
     const int num_blocks = ceil_div(ne / QK4_0, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1174,6 +1185,8 @@ static void ggml_cpy_f16_q4_1_sycl(const char * cx, char * cdst, const int ne, c
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK4_1 == 0);
     const int num_blocks = ceil_div(ne / QK4_1, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1196,6 +1209,8 @@ static void ggml_cpy_f16_q5_0_sycl(const char * cx, char * cdst, const int ne, c
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK5_0 == 0);
     const int num_blocks = ceil_div(ne / QK5_0, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
+        , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -2092,6 +2107,9 @@ void ggml_sycl_cpy(ggml_backend_sycl_context & ctx, const ggml_tensor * src0, co
     scope_op_debug_print scope_dbg_print(__func__, src1, /*num_src=*/0, debug_get_tensor_str("\tsrc0", src0));
     const int64_t ne = ggml_nelements(src0);
     GGML_ASSERT(ne == ggml_nelements(src1));
+    // この制限が無いと問題だが、この壁は超えなければならないと思われ。
+    //// the cpy kernels index in 32-bit
+    //GGML_ASSERT(ne <= INT32_MAX);
 
     GGML_TENSOR_BINARY_OP_LOCALS01;
 
