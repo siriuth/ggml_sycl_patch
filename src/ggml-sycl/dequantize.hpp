@@ -1626,7 +1626,7 @@ static void dequantize_block_iq3_xxs_reorder(const void * __restrict__ vx, dst_t
                                              const uint32_t * iq3xxs_grid,
                                              const uint8_t * ksigns_iq2xs,
                                              const uint8_t * kmask_iq2xs) {
-    const int64_t i   = item_ct1.get_group(2);
+    //const int64_t i   = item_ct1.get_group(2);
     const int64_t tid = item_ct1.get_local_id(2);
 #if QK_K == 256
     const int64_t il = tid / 8;
