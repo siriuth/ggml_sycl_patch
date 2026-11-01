@@ -170,6 +170,7 @@ static void cpy_f32_f16_op_same_shape(const char * cx, char * cdst, const int ne
                         const int nb10, const int nb11, const int nb12, const int nb13,
                         const int offset0, const int offset1, const int offset2,
                         const sycl::nd_item<3> & item_ct1) {
+    GGML_UNUSED(ne);
     // 要素数が同じ、形状も同じ物
     const int i0 = item_ct1.get_global_id(2) + offset2;
     const int i1 = item_ct1.get_global_id(1) + offset1;
@@ -194,6 +195,8 @@ static void cpy_f32_f16_op_different_shape(const char * cx, char * cdst, const i
                         const int nb10, const int nb11, const int nb12, const int nb13,
                         const int offset0, const int offset1, const int offset2,
                         const sycl::nd_item<3> & item_ct1) {
+    GGML_UNUSED(ne);
+    GGML_UNUSED(ne13);
     // 要素数が同じだが、次元ごとの要素数（形状）は違うもの（あり得るのかどうかわからない）
     const int i0 = item_ct1.get_global_id(2) + offset2;
     const int i1 = item_ct1.get_global_id(1) + offset1;
@@ -228,6 +231,8 @@ static void cpy_f32_f16_op2(const char * cx, char * cdst, const int ne, const in
                         const int ne12, const int nb10, const int nb11, const int nb12, const int nb13,
                         const int i_offset, const int ne000102, const int ne101112,
                         const sycl::nd_item<1> & item_ct1) {
+    GGML_UNUSED(ne02);
+    GGML_UNUSED(ne12);
     const int i = i_offset + item_ct1.get_local_range(0) * item_ct1.get_group(0) + item_ct1.get_local_id(0);
 
     if (i >= ne) {
@@ -409,6 +414,8 @@ static void cpy_f32_q_op_different_shape(
     const sycl::range<3> offset,
     const sycl::nd_item<3> & item_ct1) {
 
+    GGML_UNUSED(ne);
+    GGML_UNUSED(ne13);
     // 要素数が同じだが、次元ごとの要素数（形状）は違うもの（あり得るのかどうかわからない）
     const int i0 = item_ct1.get_global_id(2) + offset[2] * qk;
     const int i1 = item_ct1.get_global_id(1) + offset[1];
@@ -705,6 +712,7 @@ static void ggml_cpy_i32_f32_sycl(const char * cx, char * cdst, const int ne, co
     const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
     const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = (ne + SYCL_CPY_BLOCK_SIZE - 1) / SYCL_CPY_BLOCK_SIZE;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     {
         SyclQueueEventWatcher::getInstance().WaitForSubmit();
         auto e =
@@ -857,8 +865,8 @@ static void ggml_cpy_f32_q4_0_sycl(const char * cx, char * cdst, const int ne, c
     const int num_blocks = ceil_div(ne / QK4_0, SYCL_CPY_BLOCK_SIZE);
     GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
         , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
-    const int ne000102 = ne00 * ne01 * ne02;
-    const int ne101112 = ne10 * ne11 * ne12;
+    //const int ne000102 = ne00 * ne01 * ne02;
+    //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
     auto e =
         //stream->parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks), sycl::range<3>(1, 1, 1)),
@@ -913,8 +921,8 @@ static void ggml_cpy_f32_q4_1_sycl(const char * cx, char * cdst, const int ne, c
     const int num_blocks = ceil_div(ne / QK4_1, SYCL_CPY_BLOCK_SIZE);
     GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
         , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
-    const int ne000102 = ne00 * ne01 * ne02;
-    const int ne101112 = ne10 * ne11 * ne12;
+    //const int ne000102 = ne00 * ne01 * ne02;
+    //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
     auto e =
     //stream->parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks), sycl::range<3>(1, 1, 1)),
@@ -969,8 +977,8 @@ static void ggml_cpy_f32_q5_0_sycl(const char * cx, char * cdst, const int ne, c
     const int num_blocks = ceil_div(ne / QK5_0, SYCL_CPY_BLOCK_SIZE);
     GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
         , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
-    const int ne000102 = ne00 * ne01 * ne02;
-    const int ne101112 = ne10 * ne11 * ne12;
+    //const int ne000102 = ne00 * ne01 * ne02;
+    //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
     auto e =
     //stream->parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks), sycl::range<3>(1, 1, 1)),
@@ -1025,8 +1033,8 @@ static void ggml_cpy_f32_q5_1_sycl(const char * cx, char * cdst, const int ne, c
     const int num_blocks = ceil_div(ne / QK5_1, SYCL_CPY_BLOCK_SIZE);
     GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
         , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
-    const int ne000102 = ne00 * ne01 * ne02;
-    const int ne101112 = ne10 * ne11 * ne12;
+    //const int ne000102 = ne00 * ne01 * ne02;
+    //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
     auto e =
     //stream->parallel_for(sycl::nd_range<3>(sycl::range<3>(1, 1, num_blocks), sycl::range<3>(1, 1, 1)),
@@ -1104,8 +1112,8 @@ static void ggml_cpy_f32_iq4_nl_sycl(const char * cx, char * cdst, const int ne,
     const int num_blocks = ceil_div(ne / QK4_NL, SYCL_CPY_BLOCK_SIZE);
     GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__
         , ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
-    const int ne000102 = ne00 * ne01 * ne02;
-    const int ne101112 = ne10 * ne11 * ne12;
+    //const int ne000102 = ne00 * ne01 * ne02;
+    //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
     auto e =
     stream->parallel_for(
@@ -1639,6 +1647,7 @@ static void ggml_cpy_q1_0_q1_0(const char * cx, char * cdst, const int ne, const
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK1_0 == 0);
     const int num_blocks = ceil_div(ne / QK1_0, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1659,6 +1668,7 @@ static void ggml_cpy_q2_0_q2_0(const char * cx, char * cdst, const int ne, const
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK2_0 == 0);
     const int num_blocks = ceil_div(ne / QK2_0, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1679,6 +1689,7 @@ static void ggml_cpy_mxfp4_mxfp4(const char * cx, char * cdst, const int ne, con
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_MXFP4 == 0);
     const int num_blocks = ceil_div(ne / QK_MXFP4, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1699,6 +1710,7 @@ static void ggml_cpy_nvfp4_nvfp4(const char * cx, char * cdst, const int ne, con
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_NVFP4 == 0);
     const int num_blocks = ceil_div(ne / QK_NVFP4, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1719,6 +1731,7 @@ static void ggml_cpy_q2_K_q2_K(const char * cx, char * cdst, const int ne, const
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1739,6 +1752,7 @@ static void ggml_cpy_q3_K_q3_K(const char * cx, char * cdst, const int ne, const
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1759,6 +1773,7 @@ static void ggml_cpy_q4_K_q4_K(const char * cx, char * cdst, const int ne, const
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1779,6 +1794,7 @@ static void ggml_cpy_q5_K_q5_K(const char * cx, char * cdst, const int ne, const
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1799,6 +1815,7 @@ static void ggml_cpy_q6_K_q6_K(const char * cx, char * cdst, const int ne, const
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1819,6 +1836,7 @@ static void ggml_cpy_iq2_xxs_iq2_xxs(const char * cx, char * cdst, const int ne,
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1839,6 +1857,7 @@ static void ggml_cpy_iq2_xs_iq2_xs(const char * cx, char * cdst, const int ne, c
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1859,6 +1878,7 @@ static void ggml_cpy_iq2_s_iq2_s(const char * cx, char * cdst, const int ne, con
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1879,6 +1899,7 @@ static void ggml_cpy_iq3_xxs_iq3_xxs(const char * cx, char * cdst, const int ne,
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1899,6 +1920,7 @@ static void ggml_cpy_iq1_s_iq1_s(const char * cx, char * cdst, const int ne, con
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1919,6 +1941,7 @@ static void ggml_cpy_iq1_m_iq1_m(const char * cx, char * cdst, const int ne, con
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1939,6 +1962,7 @@ static void ggml_cpy_iq4_nl_iq4_nl(const char * cx, char * cdst, const int ne, c
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK4_NL == 0);
     const int num_blocks = ceil_div(ne / QK4_NL, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1959,6 +1983,7 @@ static void ggml_cpy_iq3_s_iq3_s(const char * cx, char * cdst, const int ne, con
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -1979,8 +2004,9 @@ static void ggml_cpy_iq4_xs_iq4_xs(const char * cx, char * cdst, const int ne, c
                                    const int nb12, const int nb13, queue_ptr stream) {
     GGML_ASSERT(ne % QK_K == 0);
     const int num_blocks = ceil_div(ne / QK_K, SYCL_CPY_BLOCK_SIZE);
-    const int ne000102 = ne00 * ne01 * ne02;
-    const int ne101112 = ne10 * ne11 * ne12;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
+    //const int ne000102 = ne00 * ne01 * ne02;
+    //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
     auto e =
     stream->parallel_for(
@@ -1999,6 +2025,7 @@ static void ggml_cpy_f32_bf16_sycl(const char * cx, char * cdst, const int ne, c
                                   const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
                                   const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = (ne + SYCL_CPY_BLOCK_SIZE - 1) / SYCL_CPY_BLOCK_SIZE;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -2020,6 +2047,7 @@ static void ggml_cpy_bf16_f32_sycl(const char * cx, char * cdst, const int ne, c
                                   const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
                                   const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = (ne + SYCL_CPY_BLOCK_SIZE - 1) / SYCL_CPY_BLOCK_SIZE;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -2041,6 +2069,7 @@ static void ggml_cpy_bf16_bf16_sycl(const char * cx, char * cdst, const int ne, 
                                   const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
                                   const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = (ne + SYCL_CPY_BLOCK_SIZE - 1) / SYCL_CPY_BLOCK_SIZE;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -2062,6 +2091,7 @@ static void ggml_cpy_f16_bf16_sycl(const char * cx, char * cdst, const int ne, c
                                   const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
                                   const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = (ne + SYCL_CPY_BLOCK_SIZE - 1) / SYCL_CPY_BLOCK_SIZE;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
@@ -2083,6 +2113,7 @@ static void ggml_cpy_bf16_f16_sycl(const char * cx, char * cdst, const int ne, c
                                   const int ne10, const int ne11, const int ne12, const int nb10, const int nb11,
                                   const int nb12, const int nb13, queue_ptr stream) {
     const int num_blocks = (ne + SYCL_CPY_BLOCK_SIZE - 1) / SYCL_CPY_BLOCK_SIZE;
+    GGML_SYCL_DEBUG("[SYCL] %s ne:%d num_blocks:%d SYCL_CPY_BLOCK_SIZE:%d\n", __func__, ne, num_blocks, SYCL_CPY_BLOCK_SIZE);
     //const int ne000102 = ne00 * ne01 * ne02;
     //const int ne101112 = ne10 * ne11 * ne12;
     SyclQueueEventWatcher::getInstance().WaitForSubmit();
