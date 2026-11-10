@@ -1,11 +1,24 @@
 #include "norm.hpp"
 #include "ggml-sycl/common.hpp"
 #include "ggml-sycl/presets.hpp"
+#include "siriuth.hpp"
 
+//#define norm_f32_sycl_UseEventWatcher
+//#define group_norm_f32_sycl_UseEventWatcher
+//#define rms_norm_f32_sycl_UseEventWatcher
+//#define rms_norm_scale_f32_sycl_UseEventWatcher
+//#define rms_norm_mul_f32_sycl_UseEventWatcher
+//#define rms_norm_mul_add_f32_sycl_UseEventWatcher
+//#define l2_norm_f32_sycl_UseEventWatcher
+
+/*
 static void norm_f32(const float* x, float* dst, const int ncols,
     const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
     const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
     const float eps, const sycl::nd_item<3>& item_ct1, sycl::float2* s_sum, int block_size) {
+
+    //const int nrows = item_ct1.get_group_range(2);
+    //const int nchannels = item_ct1.get_group_range(1);
 
     const int nthreads = item_ct1.get_local_range(2);
     const int sample  = item_ct1.get_group(0);
@@ -39,6 +52,8 @@ static void norm_f32(const float* x, float* dst, const int ncols,
             s_sum[sg_id] = mean_var;
         }
         item_ct1.barrier(sycl::access::fence_space::local_space);
+        //item_ct1.group_barrier(sycl::access::fence_space::local_space);
+        (sycl::access::fence_space::local_space);
         mean_var = 0.f;
         const size_t nreduce = ceil_div(nwarps, WARP_SIZE);
         for (size_t i = 0; i < nreduce; i += 1)
@@ -47,6 +62,154 @@ static void norm_f32(const float* x, float* dst, const int ncols,
         }
         mean_var = warp_reduce_sum(mean_var, item_ct1);
     }
+
+    const float mean = mean_var.x() / ncols;
+    const float var = mean_var.y() / ncols - mean * mean;
+    const float inv_std = sycl::rsqrt(var + eps);
+
+    for (int col = tid; col < ncols; col += block_size) {
+        dst[col * dst_stride_col] = (x[col * src_stride_col] - mean) * inv_std;
+    }
+}
+*/
+
+//static void norm_f32_warp(const float* x, float* dst, const int ncols,
+//    const int nrows, const int nchannels,
+//    //const int sample, const int channel, const int row,
+//    const sycl::range<3> offset,
+//    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+//    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+//    const float eps, const sycl::nd_item<3>& item_ct1, int block_size) {
+//
+//    //const int nrows = item_ct1.get_group_range(2);
+//    //const int nchannels = item_ct1.get_group_range(1);
+//
+//    //// ただのオフセット値
+//    const int sample  = item_ct1.get_group(0) + offset[0];
+//    const int channel = item_ct1.get_group(1) + offset[1];
+//    const int row     = item_ct1.get_group(2) + offset[2];
+//
+//    //const int tid = item_ct1.get_local_id(2);
+//    const int tid = item_ct1.get_global_id(2) + offset[2];
+//
+//    const auto src_offset = calculate_offset<3>({src_stride_sample, src_stride_channel, src_stride_row}, {sample, channel, row});
+//    const auto dst_offset = calculate_offset<3>({dst_stride_sample, dst_stride_channel, dst_stride_row}, {sample, channel, row});
+//
+//    x += src_offset;
+//    dst += dst_offset;
+//
+//    sycl::float2 mean_var = sycl::float2(0.f, 0.f);
+//
+//    for (int col = tid; col < ncols; col += block_size) {
+//        const float xi = x[col * src_stride_col];
+//        mean_var.x() += xi;
+//        mean_var.y() += xi * xi;
+//    }
+//
+//    mean_var = warp_reduce_sum(mean_var, item_ct1);
+//
+//    const float mean = mean_var.x() / ncols;
+//    const float var = mean_var.y() / ncols - mean * mean;
+//    const float inv_std = sycl::rsqrt(var + eps);
+//
+//    for (int col = tid; col < ncols; col += block_size) {
+//        dst[col * dst_stride_col] = (x[col * src_stride_col] - mean) * inv_std;
+//    }
+//}
+
+static void norm_f32_WARPorunder(const float* x, float* dst, const int ncols,
+    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+    const float eps, const sycl::nd_item<3>& item_ct1, int block_size) {
+
+    //const int nrows = item_ct1.get_group_range(2);
+    //const int nchannels = item_ct1.get_group_range(1);
+
+    //const int nthreads = item_ct1.get_local_range(2);
+    const int sample  = item_ct1.get_group(0);
+    const int channel = item_ct1.get_group(1);
+    const int row     = item_ct1.get_group(2);
+
+    const int tid = item_ct1.get_local_id(2);
+    //const int nwarps = nthreads / WARP_SIZE;
+
+    const auto src_offset = calculate_offset<3>({src_stride_sample, src_stride_channel, src_stride_row}, {sample, channel, row});
+    const auto dst_offset = calculate_offset<3>({dst_stride_sample, dst_stride_channel, dst_stride_row}, {sample, channel, row});
+
+    x += src_offset;
+    dst += dst_offset;
+
+    sycl::float2 mean_var = sycl::float2(0.f, 0.f);
+
+    for (int col = tid; col < ncols; col += block_size) {
+        const float xi = x[col * src_stride_col];
+        mean_var.x() += xi;
+        mean_var.y() += xi * xi;
+    }
+
+    // sum up partial sums
+    mean_var = warp_reduce_sum(mean_var, item_ct1);
+
+    const float mean = mean_var.x() / ncols;
+    const float var = mean_var.y() / ncols - mean * mean;
+    const float inv_std = sycl::rsqrt(var + eps);
+
+    for (int col = tid; col < ncols; col += block_size) {
+        dst[col * dst_stride_col] = (x[col * src_stride_col] - mean) * inv_std;
+    }
+}
+
+static void norm_f32_overWARP(const float* x, float* dst, const int ncols,
+    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+    const float eps, const sycl::nd_item<3>& item_ct1, sycl::float2* s_sum, int block_size) {
+
+    //const int nrows = item_ct1.get_group_range(2);
+    //const int nchannels = item_ct1.get_group_range(1);
+
+    const int sample  = item_ct1.get_group(0);
+    const int channel = item_ct1.get_group(1);
+    const int row     = item_ct1.get_group(2);
+
+    const int tid = item_ct1.get_local_id(2);
+
+    const auto src_offset = calculate_offset<3>({src_stride_sample, src_stride_channel, src_stride_row}, {sample, channel, row});
+    const auto dst_offset = calculate_offset<3>({dst_stride_sample, dst_stride_channel, dst_stride_row}, {sample, channel, row});
+
+    x += src_offset;
+    dst += dst_offset;
+
+    sycl::float2 mean_var = sycl::float2(0.f, 0.f);
+
+    for (int col = tid; col < ncols; col += block_size) {
+        const float xi = x[col * src_stride_col];
+        mean_var.x() += xi;
+        mean_var.y() += xi * xi;
+    }
+
+    // sum up partial sums
+    mean_var = warp_reduce_sum(mean_var, item_ct1);
+//    if  (block_size > WARP_SIZE) {
+        //const auto sub_group = item_ct1.get_sub_group();
+        //const auto sg_id = sub_group.get_group_linear_id();
+        const auto wi_in_sg = item_ct1.get_sub_group().get_local_linear_id();
+        if (wi_in_sg == 0) {
+            //s_sum[sg_id] = mean_var;
+            s_sum[item_ct1.get_sub_group().get_group_linear_id()] = mean_var;
+        }
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+        //item_ct1.group_barrier(sycl::access::fence_space::local_space);
+        mean_var = 0.f;
+        //const int nthreads = item_ct1.get_local_range(2);
+        //const int nwarps = nthreads / WARP_SIZE;
+        //const size_t nreduce = ceil_div(nwarps, WARP_SIZE);
+        const size_t nreduce = ceil_div((int)item_ct1.get_local_range(2) / WARP_SIZE, WARP_SIZE);
+        for (size_t i = 0; i < nreduce; i += 1)
+        {
+            mean_var += s_sum[wi_in_sg + i * WARP_SIZE];
+        }
+        mean_var = warp_reduce_sum(mean_var, item_ct1);
+//    }
 
     const float mean = mean_var.x() / ncols;
     const float var = mean_var.y() / ncols - mean * mean;
@@ -144,18 +307,110 @@ static void group_norm_f32(const float* x, float* dst, const int group_size, con
     }
 }
 
+//static void group_norm_f32_overWRAP(const float* x, float* dst, const int group_size, const int ne_elements, const float eps,
+//    const sycl::nd_item<3>& item_ct1, float* s_sum, int block_size) {
+//    int start = item_ct1.get_group(2) * group_size;
+//    int end = start + group_size;
+//    const int nthreads = item_ct1.get_local_range(2);
+//    const int nwarps = nthreads / WARP_SIZE;
+//    start += item_ct1.get_local_id(2);
+//    size_t nreduce = nwarps / WARP_SIZE;
+//
+//    if (end >= ne_elements) {
+//        end = ne_elements;
+//    }
+//
+//    float tmp = 0.0f; // partial sum for thread in warp
+//
+//    for (int j = start; j < end; j += block_size) {
+//        tmp += x[j];
+//    }
+//
+//    tmp = warp_reduce_sum(tmp, item_ct1);
+//    //if (block_size > WARP_SIZE)
+//    {
+//
+//        int warp_id = item_ct1.get_local_id(2) / WARP_SIZE;
+//        int lane_id = item_ct1.get_local_id(2) % WARP_SIZE;
+//        if (lane_id == 0) {
+//            s_sum[warp_id] = tmp;
+//        }
+//        /*
+//        DPCT1118:1: SYCL group functions and algorithms must be encountered in
+//        converged control flow. You may need to adjust the code.
+//        */
+//        /*
+//        DPCT1065:54: Consider replacing sycl::nd_item::barrier() with
+//        sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
+//        better performance if there is no access to global memory.
+//        */
+//        item_ct1.barrier();
+//        tmp = 0.f;
+//        for (size_t i = 0; i < nreduce; i += 1)
+//        {
+//            tmp += s_sum[lane_id + i * WARP_SIZE];
+//        }
+//        tmp = warp_reduce_sum(tmp, item_ct1);
+//    }
+//
+//    float mean = tmp / group_size;
+//    tmp = 0.0f;
+//
+//    for (int j = start; j < end; j += block_size) {
+//        float xi = x[j] - mean;
+//        dst[j] = xi;
+//        tmp += xi * xi;
+//    }
+//
+//    tmp = warp_reduce_sum(tmp, item_ct1);
+//    //if (block_size > WARP_SIZE)
+//    {
+//        int warp_id = item_ct1.get_local_id(2) / WARP_SIZE;
+//        int lane_id = item_ct1.get_local_id(2) % WARP_SIZE;
+//        if (lane_id == 0) {
+//            s_sum[warp_id] = tmp;
+//        }
+//        /*
+//        DPCT1118:2: SYCL group functions and algorithms must be encountered in
+//        converged control flow. You may need to adjust the code.
+//        */
+//        /*
+//        DPCT1065:55: Consider replacing sycl::nd_item::barrier() with
+//        sycl::nd_item::barrier(sycl::access::fence_space::local_space) for
+//        better performance if there is no access to global memory.
+//        */
+//        item_ct1.barrier();
+//        tmp = 0.f;
+//        for (size_t i = 0; i < nreduce; i += 1)
+//        {
+//            tmp += s_sum[lane_id + i * WARP_SIZE];
+//        }
+//        tmp = warp_reduce_sum(tmp, item_ct1);
+//    }
+//
+//    float variance = tmp / group_size;
+//    float scale = sycl::rsqrt(variance + eps);
+//    for (int j = start; j < end; j += block_size) {
+//        dst[j] *= scale;
+//    }
+//}
+
+//template <bool do_multiply = false>
 template <bool do_multiply = false, bool do_add = false>
 static void rms_norm_f32(const float* x, float* dst, const int ncols,
     const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
     const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+    //const float eps, const sycl::nd_item<3>& item_ct1, float* s_sum, int block_size) {
     const float eps, const sycl::nd_item<3>& item_ct1, float* s_sum, int block_size,
-    const float* mul = nullptr, const int64_t mul_stride_row = 0, const int64_t mul_stride_channel = 0,
+        const float* mul = nullptr, const int64_t mul_stride_row = 0, const int64_t mul_stride_channel = 0,
     const int64_t mul_stride_sample = 0, const int mul_nrows = 0, const int mul_nchannels = 0, const int mul_nsamples = 0,
     const float* add = nullptr, const int64_t add_stride_row = 0, const int64_t add_stride_channel = 0,
     const int64_t add_stride_sample = 0, const int add_nrows = 0, const int add_nchannels = 0, const int add_nsamples = 0,
     const float scale_mul = 1.0f) {
 
     static_assert(!do_add || do_multiply, "fusing add is not supported without multiplying");
+    //const int nrows = item_ct1.get_group_range(2);
+    //const int nchannels = item_ct1.get_group_range(1);
 
     const int sample  = item_ct1.get_group(0);
     const int channel = item_ct1.get_group(1);
@@ -222,6 +477,7 @@ static void rms_norm_f32(const float* x, float* dst, const int ncols,
         } else if constexpr (do_multiply) {
             dst[col * dst_stride_col] = scale * x[col * src_stride_col] * mul[col];
         } else {
+            //dst[col * dst_stride_col] = scale * x[col * src_stride_col];
             // folded epilogue of a fused GGML_OP_SCALE consumer (qwen35 GDN l2 norms);
             // the explicit temporary keeps the float evaluation order identical to
             // running rms_norm and scale as two separate kernels
@@ -231,12 +487,181 @@ static void rms_norm_f32(const float* x, float* dst, const int ncols,
     }
 }
 
+template <bool do_multiply = false, bool do_add = false>
+static void rms_norm_f32_WARPorunder(const float* x, float* dst, const int ncols,
+    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+    //const float eps, const sycl::nd_item<3>& item_ct1, float* s_sum, int block_size) {
+    const float eps, const sycl::nd_item<3>& item_ct1, float* s_sum, int block_size,
+    const float* mul = nullptr, const int64_t mul_stride_row = 0, const int64_t mul_stride_channel = 0,
+    const int64_t mul_stride_sample = 0, const int mul_nrows = 0, const int mul_nchannels = 0, const int mul_nsamples = 0,
+    const float* add = nullptr, const int64_t add_stride_row = 0, const int64_t add_stride_channel = 0,
+    const int64_t add_stride_sample = 0, const int add_nrows = 0, const int add_nchannels = 0, const int add_nsamples = 0,
+    const float scale_mul = 1.0f) {
+
+    static_assert(!do_add || do_multiply, "fusing add is not supported without multiplying");
+    //const int nrows = item_ct1.get_group_range(2);
+    //const int nchannels = item_ct1.get_group_range(1);
+
+    const int sample  = item_ct1.get_group(0);
+    const int channel = item_ct1.get_group(1);
+    const int row     = item_ct1.get_group(2);
+
+    const int nthreads = item_ct1.get_local_range(2);
+
+    const int tid = item_ct1.get_local_id(2);
+    const int nwarps = nthreads / WARP_SIZE;
+
+    const auto src_offset = calculate_offset<3>({src_stride_sample, src_stride_channel, src_stride_row}, {sample, channel, row});
+    const auto dst_offset = calculate_offset<3>({dst_stride_sample, dst_stride_channel, dst_stride_row}, {sample, channel, row});
+
+    x   += src_offset;
+    dst += dst_offset;
+
+    if constexpr (do_multiply) {
+        const int mul_row     = row     % mul_nrows;
+        const int mul_channel = channel % mul_nchannels;
+        const int mul_sample  = sample  % mul_nsamples;
+        mul += mul_sample * mul_stride_sample + mul_channel * mul_stride_channel + mul_row * mul_stride_row;
+    }
+
+    if constexpr (do_add) {
+        const int add_row     = row     % add_nrows;
+        const int add_channel = channel % add_nchannels;
+        const int add_sample  = sample  % add_nsamples;
+        add += add_sample * add_stride_sample + add_channel * add_stride_channel + add_row * add_stride_row;
+    }
+
+    float tmp = 0.0f; // partial sum for thread in warp
+
+    for (int col = tid; col < ncols; col += block_size) {
+        const float xi = x[col * src_stride_col];
+        tmp += xi * xi;
+    }
+
+    // sum up partial sums
+    tmp = warp_reduce_sum(tmp, item_ct1);
+
+    const float mean = tmp / ncols;
+    const float scale = sycl::rsqrt(mean + eps);
+
+    for (int col = tid; col < ncols; col += block_size) {
+        if constexpr (do_multiply && do_add) {
+            dst[col * dst_stride_col] = scale * x[col * src_stride_col] * mul[col] + add[col];
+        } else if constexpr (do_multiply) {
+            dst[col * dst_stride_col] = scale * x[col * src_stride_col] * mul[col];
+        } else {
+            //dst[col * dst_stride_col] = scale * x[col * src_stride_col];
+            // folded epilogue of a fused GGML_OP_SCALE consumer (qwen35 GDN l2 norms);
+            // the explicit temporary keeps the float evaluation order identical to
+            // running rms_norm and scale as two separate kernels
+            const float v = scale * x[col * src_stride_col];
+            dst[col * dst_stride_col] = v * scale_mul;
+        }
+    }
+}
+
+template <bool do_multiply = false, bool do_add = false>
+static void rms_norm_f32_overWARP(const float* x, float* dst, const int ncols,
+    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+    //const float eps, const sycl::nd_item<3>& item_ct1, float* s_sum, int block_size) {
+    const float eps, const sycl::nd_item<3>& item_ct1, float* s_sum, int block_size,
+    const float* mul = nullptr, const int64_t mul_stride_row = 0, const int64_t mul_stride_channel = 0,
+    const int64_t mul_stride_sample = 0, const int mul_nrows = 0, const int mul_nchannels = 0, const int mul_nsamples = 0,
+    const float* add = nullptr, const int64_t add_stride_row = 0, const int64_t add_stride_channel = 0,
+    const int64_t add_stride_sample = 0, const int add_nrows = 0, const int add_nchannels = 0, const int add_nsamples = 0,
+    const float scale_mul = 1.0f) {
+
+    static_assert(!do_add || do_multiply, "fusing add is not supported without multiplying");
+    //const int nrows = item_ct1.get_group_range(2);
+    //const int nchannels = item_ct1.get_group_range(1);
+
+    const int sample  = item_ct1.get_group(0);
+    const int channel = item_ct1.get_group(1);
+    const int row     = item_ct1.get_group(2);
+
+    const int nthreads = item_ct1.get_local_range(2);
+
+    const int tid = item_ct1.get_local_id(2);
+    const int nwarps = nthreads / WARP_SIZE;
+
+    const auto src_offset = calculate_offset<3>({src_stride_sample, src_stride_channel, src_stride_row}, {sample, channel, row});
+    const auto dst_offset = calculate_offset<3>({dst_stride_sample, dst_stride_channel, dst_stride_row}, {sample, channel, row});
+
+    x   += src_offset;
+    dst += dst_offset;
+
+    if constexpr (do_multiply) {
+        const int mul_row     = row     % mul_nrows;
+        const int mul_channel = channel % mul_nchannels;
+        const int mul_sample  = sample  % mul_nsamples;
+        mul += mul_sample * mul_stride_sample + mul_channel * mul_stride_channel + mul_row * mul_stride_row;
+    }
+
+    if constexpr (do_add) {
+        const int add_row     = row     % add_nrows;
+        const int add_channel = channel % add_nchannels;
+        const int add_sample  = sample  % add_nsamples;
+        add += add_sample * add_stride_sample + add_channel * add_stride_channel + add_row * add_stride_row;
+    }
+
+    float tmp = 0.0f; // partial sum for thread in warp
+
+    for (int col = tid; col < ncols; col += block_size) {
+        const float xi = x[col * src_stride_col];
+        tmp += xi * xi;
+    }
+
+    // sum up partial sums
+    tmp = warp_reduce_sum(tmp, item_ct1);
+    //if (block_size > WARP_SIZE)
+    {
+        const auto sub_group = item_ct1.get_sub_group();
+        const auto sg_id = sub_group.get_group_linear_id();
+        const auto wi_in_sg = sub_group.get_local_linear_id();
+        if (wi_in_sg == 0) {
+            s_sum[sg_id] = tmp;
+        }
+
+        item_ct1.barrier(sycl::access::fence_space::local_space);
+        const size_t nreduce = ceil_div(nwarps, WARP_SIZE);
+        tmp = 0.f;
+        for (size_t i = 0; i < nreduce; i += 1)
+        {
+            tmp += s_sum[wi_in_sg + i * WARP_SIZE];
+        }
+        tmp = warp_reduce_sum(tmp, item_ct1);
+    }
+
+    const float mean = tmp / ncols;
+    const float scale = sycl::rsqrt(mean + eps);
+
+    for (int col = tid; col < ncols; col += block_size) {
+        if constexpr (do_multiply && do_add) {
+            dst[col * dst_stride_col] = scale * x[col * src_stride_col] * mul[col] + add[col];
+        } else if constexpr (do_multiply) {
+            dst[col * dst_stride_col] = scale * x[col * src_stride_col] * mul[col];
+        } else {
+            //dst[col * dst_stride_col] = scale * x[col * src_stride_col];
+            // folded epilogue of a fused GGML_OP_SCALE consumer (qwen35 GDN l2 norms);
+            // the explicit temporary keeps the float evaluation order identical to
+            // running rms_norm and scale as two separate kernels
+            const float v = scale * x[col * src_stride_col];
+            dst[col * dst_stride_col] = v * scale_mul;
+        }
+    }
+}
+
+
 template<int warp_size>
 static void l2_norm_f32(const float * x, float * dst, const int ncols,
     const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel,
     const int64_t src_stride_sample, const int64_t dst_stride_col, const int64_t dst_stride_row,
     const int64_t dst_stride_channel, const int64_t dst_stride_sample, const float eps,
     const sycl::nd_item<3>& item_ct1, float* s_sum, const int block_size) {
+    //const int nrows     = item_ct1.get_group_range(2);
+    //const int nchannels = item_ct1.get_group_range(1);
 
     const int row     = item_ct1.get_group(2);
     const int channel = item_ct1.get_group(1);
@@ -268,20 +693,28 @@ static void norm_f32_sycl(const float * x, float * dst, const int ncols, const i
 
     const sycl::range<3> global_dims(nsamples, nchannels, nrows);
     if (ncols < 1024) {
+        GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nsamples:%d nchannels:%d nrows:%d WARP_SIZE:%d\n", __func__, ncols, nsamples, nchannels, nrows, WARP_SIZE);
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
-        stream->submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(
+#ifdef norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->parallel_for(
                 sycl::nd_range<3>(global_dims * block_dims, block_dims),
                 [=](sycl::nd_item<3> item_ct1)
                 [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    norm_f32(x, dst, ncols,
+                    //norm_f32(x, dst, ncols,
+                    norm_f32_WARPorunder(x, dst, ncols,
                         src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
                         dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
-                        eps, item_ct1, nullptr, WARP_SIZE);
+                        eps, item_ct1, WARP_SIZE);
                 });
-            });
+#ifdef norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
     else {
+        // なんか、work_groupを大きくして、下手に処理増やして重くするより、素直にループさせた方が良い気がする…キノセイ？
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
@@ -290,30 +723,107 @@ static void norm_f32_sycl(const float * x, float * dst, const int ncols, const i
         the limit. To get the device limit, query
         info::device::max_work_group_size. Adjust the work-group size if needed.
         */
-        stream->submit([&](sycl::handler& cgh) {
-            sycl::local_accessor<sycl::float2, 1> s_sum_acc_ct1(
-                            sycl::range<1>(work_group_size / WARP_SIZE), cgh);
-            cgh.parallel_for(
+        // CMakeLists.txt 内で GGML_SYCL_WARP_SIZE に 16か32が設定される。
+        // WARP_SIZEはggml-sycl/presets.hppでGGML_SYCL_WARP_SIZEが設定される。
+        GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nsamples:%d nchannels:%d nrows:%d work_group_size:%d WARP_SIZE:%d\n", __func__, ncols, nsamples, nchannels, nrows, work_group_size, WARP_SIZE);
+        if(work_group_size > WARP_SIZE) {
+
+#ifdef norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().WaitForSubmit();
+            auto e =
+#endif
+                stream->submit([&](sycl::handler& cgh) {
+                    sycl::local_accessor<sycl::float2, 1> s_sum_acc_ct1(
+                                sycl::range<1>(work_group_size / WARP_SIZE), cgh);
+                        cgh.parallel_for(
+                            sycl::nd_range<3>(global_dims * block_dims, block_dims),
+                            [=](sycl::nd_item<3> item_ct1)
+                            [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
+                                //norm_f32(x, dst, ncols,
+                                norm_f32_overWARP(x, dst, ncols,
+                                    src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+                                    dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+                                    eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size);
+                            });
+                });
+
+#ifdef norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
+        }else{
+#ifdef norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().WaitForSubmit();
+            auto e =
+#endif
+                stream->parallel_for(
                 sycl::nd_range<3>(global_dims * block_dims, block_dims),
                 [=](sycl::nd_item<3> item_ct1)
                 [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    norm_f32(x, dst, ncols,
+                    norm_f32_WARPorunder(x, dst, ncols,
                         src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
                         dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
-                        eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size);
+                        eps, item_ct1, work_group_size);
                 });
-            });
+
+#ifdef norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
+        }
     }
 }
+
+//static void norm_f32_warp_sycl(const float * x, float * dst, const int ncols, const int nrows, const int nchannels, const int nsamples,
+//    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+//    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+//    const float eps, queue_ptr stream, int device) {
+//
+//    //const sycl::range<3> global_dims(nsamples, nchannels, nrows);
+//    //const sycl::range<3> block_dims(1, 1, WARP_SIZE);
+//
+//
+//    GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nsamples:%d nchannels:%d nrows:%d WARP_SIZE:%d\n", __func__, ncols, nsamples, nchannels, nrows, WARP_SIZE);
+//
+//    sycl::range<3> world(nsamples, nchannels, nrows);
+//    sycl::range<3> local(1, 1, WARP_SIZE);
+//    ggml_sycl_looper(world, local, WARP_SIZE, stream,
+//        [=](sycl::range<3> global, sycl::range<3> offset){
+//            auto e =
+//                stream->parallel_for(sycl::nd_range<3>(global, local),
+//                    [=](sycl::nd_item<3> item_ct1)
+//                    [[sycl::reqd_sub_group_size(WARP_SIZE)]]
+//
+//                //stream->parallel_for(
+//                //        sycl::nd_range<3>(global_dims * block_dims, block_dims),
+//                //        [=](sycl::nd_item<3> item_ct1)
+//                //        [[sycl::reqd_sub_group_size(WARP_SIZE)]]
+//                    {
+//                        //norm_f32(x, dst, ncols,
+//                        norm_f32_warp(x, dst, ncols,
+//                            nrows, nchannels,
+//                            //offset[0], offset[1], offset[2],
+//                            offset,
+//                            src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+//                            dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+//                            eps, item_ct1, WARP_SIZE);
+//                    }
+//                );
+//            SyclQueueEventWatcher::getInstance().SetEvent(e);
+//        }
+//    );
+//}
 
 static void group_norm_f32_sycl(const float* x, float* dst,
     const int num_groups, const float eps, const int group_size,
     const int ne_elements, queue_ptr stream, int device) {
+    GGML_SYCL_DEBUG("[SYCL] %s num_groups:%d group_size:%d ne_elements:%d\n", __func__, num_groups, group_size, ne_elements);
     if (group_size < 1024) {
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
-        stream->submit([&](sycl::handler& cgh) {
-            const float eps_ct4 = eps;
-            cgh.parallel_for(
+        const float eps_ct4 = eps;
+#ifdef group_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->parallel_for(
                 sycl::nd_range<3>(sycl::range<3>(1, 1, num_groups) * block_dims,
                     block_dims),
                 [=](sycl::nd_item<3> item_ct1)
@@ -322,7 +832,9 @@ static void group_norm_f32_sycl(const float* x, float* dst,
                         x, dst, group_size, ne_elements, eps_ct4, item_ct1,
                         nullptr, WARP_SIZE);
                 });
-            });
+#ifdef group_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
     else {
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
@@ -334,22 +846,29 @@ static void group_norm_f32_sycl(const float* x, float* dst,
         info::device::max_work_group_size. Adjust the work-group size if needed.
         */
 
-        stream->submit([&](sycl::handler& cgh) {
-            sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
-                cgh);
+#ifdef group_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->submit([&](sycl::handler& cgh) {
+                sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
+                    cgh);
 
-            const float eps_ct4 = eps;
+                const float eps_ct4 = eps;
 
-            cgh.parallel_for(
-                sycl::nd_range<3>(sycl::range<3>(1, 1, num_groups) * block_dims,
-                    block_dims),
-                [=](sycl::nd_item<3> item_ct1)
-                [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    group_norm_f32(x, dst, group_size, ne_elements,
-                        eps_ct4, item_ct1,
-                        get_pointer(s_sum_acc_ct1), work_group_size);
+                cgh.parallel_for(
+                    sycl::nd_range<3>(sycl::range<3>(1, 1, num_groups) * block_dims,
+                        block_dims),
+                    [=](sycl::nd_item<3> item_ct1)
+                    [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
+                        group_norm_f32(x, dst, group_size, ne_elements,
+                            eps_ct4, item_ct1,
+                            get_pointer(s_sum_acc_ct1), work_group_size);
+                    });
                 });
-            });
+#ifdef group_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
 }
 
@@ -357,45 +876,79 @@ static void rms_norm_f32_sycl(const float* x, float* dst, const int ncols, const
     const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
     const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
     const float eps, queue_ptr stream, int device) {
+    GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nrows:%d nchannels:%d nsamples:%d\n", __func__, ncols, nrows, nchannels, nsamples);
     // printf("%s ncols=%d, nrows=%d, WARP_SIZE=%d\n", __func__, ncols, nrows, WARP_SIZE);
 
     const sycl::range<3> global_dims(nsamples, nchannels, nrows);
     if (ncols < 1024) {
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
-        stream->submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(
+#ifdef rms_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->parallel_for(
                 sycl::nd_range<3>(global_dims * block_dims, block_dims),
                 [=](sycl::nd_item<3> item_ct1)
                 [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    rms_norm_f32(x, dst, ncols,
+                    //rms_norm_f32(x, dst, ncols,
+                    rms_norm_f32_WARPorunder(x, dst, ncols,
                         src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
                         dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
                         eps, item_ct1, nullptr, WARP_SIZE);
                 });
-            });
+#ifdef rms_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
     else {
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
-        /*
-        DPCT1049:19: The work-group size passed to the SYCL kernel may exceed
-        the limit. To get the device limit, query
-        info::device::max_work_group_size. Adjust the work-group size if needed.
-        */
-        stream->submit([&](sycl::handler& cgh) {
-            sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
-                cgh);
-            cgh.parallel_for(
-                sycl::nd_range<3>(global_dims * block_dims, block_dims),
-                [=](sycl::nd_item<3> item_ct1)
-                [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    rms_norm_f32(x, dst, ncols,
-                        src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
-                        dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
-                        eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size);
-                });
-            });
+        if (work_group_size > WARP_SIZE) {
+                /*
+            DPCT1049:19: The work-group size passed to the SYCL kernel may exceed
+            the limit. To get the device limit, query
+            info::device::max_work_group_size. Adjust the work-group size if needed.
+            */
+#ifdef rms_norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().WaitForSubmit();
+            auto e =
+#endif
+                stream->submit([&](sycl::handler& cgh) {
+                    sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
+                        cgh);
+                    cgh.parallel_for(
+                        sycl::nd_range<3>(global_dims * block_dims, block_dims),
+                        [=](sycl::nd_item<3> item_ct1)
+                        [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
+                            //rms_norm_f32(x, dst, ncols,
+                            rms_norm_f32_overWARP(x, dst, ncols,
+                                src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+                                dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+                                eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size);
+                        });
+                    });
+#ifdef rms_norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
+        } else {
+#ifdef rms_norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().WaitForSubmit();
+            auto e =
+#endif
+                stream->parallel_for(
+                    sycl::nd_range<3>(global_dims * block_dims, block_dims),
+                    [=](sycl::nd_item<3> item_ct1)
+                    [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
+                        rms_norm_f32_WARPorunder(x, dst, ncols,
+                            src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+                            dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+                            eps, item_ct1, nullptr, WARP_SIZE);
+                    });
+#ifdef rms_norm_f32_sycl_UseEventWatcher
+            SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
+        }
     }
 }
 
@@ -404,11 +957,15 @@ static void rms_norm_scale_f32_sycl(const float* x, float* dst, const int ncols,
     const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
     const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
     const float eps, const float scale_mul, queue_ptr stream, int device) {
+    GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nrows:%d nchannels:%d nsamples:%d\n", __func__, ncols, nrows, nchannels, nsamples);
     const sycl::range<3> global_dims(nsamples, nchannels, nrows);
     if (ncols < 1024) {
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
-        stream->submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(
+#ifdef rms_norm_scale_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->parallel_for(
                 sycl::nd_range<3>(global_dims * block_dims, block_dims),
                 [=](sycl::nd_item<3> item_ct1)
                 [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
@@ -420,43 +977,56 @@ static void rms_norm_scale_f32_sycl(const float* x, float* dst, const int ncols,
                         nullptr, 0, 0, 0, 0, 0, 0,
                         scale_mul);
                 });
-            });
+#ifdef rms_norm_scale_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
     else {
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
-        stream->submit([&](sycl::handler& cgh) {
-            sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
-                cgh);
-            cgh.parallel_for(
-                sycl::nd_range<3>(global_dims * block_dims, block_dims),
-                [=](sycl::nd_item<3> item_ct1)
-                [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    rms_norm_f32(x, dst, ncols,
-                        src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
-                        dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
-                        eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size,
-                        nullptr, 0, 0, 0, 0, 0, 0,
-                        nullptr, 0, 0, 0, 0, 0, 0,
-                        scale_mul);
+#ifdef rms_norm_scale_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->submit([&](sycl::handler& cgh) {
+                sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE),
+                    cgh);
+                cgh.parallel_for(
+                    sycl::nd_range<3>(global_dims * block_dims, block_dims),
+                    [=](sycl::nd_item<3> item_ct1)
+                    [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
+                        rms_norm_f32(x, dst, ncols,
+                            src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+                            dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+                            eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size,
+                            nullptr, 0, 0, 0, 0, 0, 0,
+                            nullptr, 0, 0, 0, 0, 0, 0,
+                            scale_mul);
+                    });
                 });
-            });
+#ifdef rms_norm_scale_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
 }
 
 static void rms_norm_mul_f32_sycl(const float* x, const float* mul, float* dst, const int ncols, const int nrows,
-        const int nchannels, const int nsamples,
-        const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
-        const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
-        const int64_t mul_stride_row, const int64_t mul_stride_channel, const int64_t mul_stride_sample,
-        const int mul_nrows, const int mul_nchannels, const int mul_nsamples,
-        const float eps, queue_ptr stream, int device) {
+    const int nchannels, const int nsamples,
+    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+    const int64_t mul_stride_row, const int64_t mul_stride_channel, const int64_t mul_stride_sample,
+    const int mul_nrows, const int mul_nchannels, const int mul_nsamples,
+    const float eps, queue_ptr stream, int device) {
+    GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nrows:%d nchannels:%d nsamples:%d\n", __func__, ncols, nrows, nchannels, nsamples);
     const sycl::range<3> global_dims(nsamples, nchannels, nrows);
     if (ncols < 1024) {
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
-        stream->submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(
+#ifdef rms_norm_mul_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->parallel_for(
                 sycl::nd_range<3>(global_dims * block_dims, block_dims),
                 [=](sycl::nd_item<3> item_ct1)
                 [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
@@ -466,42 +1036,55 @@ static void rms_norm_mul_f32_sycl(const float* x, const float* mul, float* dst, 
                         eps, item_ct1, nullptr, WARP_SIZE,
                         mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mul_nrows, mul_nchannels, mul_nsamples);
                 });
-            });
+#ifdef rms_norm_mul_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
     else {
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
-        stream->submit([&](sycl::handler& cgh) {
-            sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE), cgh);
-            cgh.parallel_for(
-                sycl::nd_range<3>(global_dims * block_dims, block_dims),
-                [=](sycl::nd_item<3> item_ct1)
-                [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    rms_norm_f32<true>(x, dst, ncols,
-                        src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
-                        dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
-                        eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size,
-                        mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mul_nrows, mul_nchannels, mul_nsamples);
-                });
+#ifdef rms_norm_mul_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->submit([&](sycl::handler& cgh) {
+                sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE), cgh);
+                cgh.parallel_for(
+                    sycl::nd_range<3>(global_dims * block_dims, block_dims),
+                    [=](sycl::nd_item<3> item_ct1)
+                    [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
+                        rms_norm_f32<true>(x, dst, ncols,
+                            src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+                            dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+                            eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size,
+                            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mul_nrows, mul_nchannels, mul_nsamples);
+                    });
             });
+#ifdef rms_norm_mul_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
 }
 
 static void rms_norm_mul_add_f32_sycl(const float* x, const float* mul, const float* add, float* dst,
-        const int ncols, const int nrows, const int nchannels, const int nsamples,
-        const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
-        const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
-        const int64_t mul_stride_row, const int64_t mul_stride_channel, const int64_t mul_stride_sample,
-        const int mul_nrows, const int mul_nchannels, const int mul_nsamples,
-        const int64_t add_stride_row, const int64_t add_stride_channel, const int64_t add_stride_sample,
-        const int add_nrows, const int add_nchannels, const int add_nsamples,
-        const float eps, queue_ptr stream, int device) {
+    const int ncols, const int nrows, const int nchannels, const int nsamples,
+    const int64_t src_stride_col, const int64_t src_stride_row, const int64_t src_stride_channel, const int64_t src_stride_sample,
+    const int64_t dst_stride_col, const int64_t dst_stride_row, const int64_t dst_stride_channel, const int64_t dst_stride_sample,
+    const int64_t mul_stride_row, const int64_t mul_stride_channel, const int64_t mul_stride_sample,
+    const int mul_nrows, const int mul_nchannels, const int mul_nsamples,
+    const int64_t add_stride_row, const int64_t add_stride_channel, const int64_t add_stride_sample,
+    const int add_nrows, const int add_nchannels, const int add_nsamples,
+    const float eps, queue_ptr stream, int device) {
+    GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nrows:%d nchannels:%d nsamples:%d\n", __func__, ncols, nrows, nchannels, nsamples);
     const sycl::range<3> global_dims(nsamples, nchannels, nrows);
     if (ncols < 1024) {
         const sycl::range<3> block_dims(1, 1, WARP_SIZE);
-        stream->submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(
+#ifdef rms_norm_mul_add_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->parallel_for(
                 sycl::nd_range<3>(global_dims * block_dims, block_dims),
                 [=](sycl::nd_item<3> item_ct1)
                 [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
@@ -512,26 +1095,35 @@ static void rms_norm_mul_add_f32_sycl(const float* x, const float* mul, const fl
                         mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mul_nrows, mul_nchannels, mul_nsamples,
                         add, add_stride_row, add_stride_channel, add_stride_sample, add_nrows, add_nchannels, add_nsamples);
                 });
-            });
+#ifdef rms_norm_mul_add_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
     else {
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (WARP_SIZE * WARP_SIZE) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
-        stream->submit([&](sycl::handler& cgh) {
-            sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE), cgh);
-            cgh.parallel_for(
-                sycl::nd_range<3>(global_dims * block_dims, block_dims),
-                [=](sycl::nd_item<3> item_ct1)
-                [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
-                    rms_norm_f32<true, true>(x, dst, ncols,
-                        src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
-                        dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
-                        eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size,
-                        mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mul_nrows, mul_nchannels, mul_nsamples,
-                        add, add_stride_row, add_stride_channel, add_stride_sample, add_nrows, add_nchannels, add_nsamples);
-                });
+#ifdef rms_norm_mul_add_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->submit([&](sycl::handler& cgh) {
+                sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(work_group_size / WARP_SIZE), cgh);
+                cgh.parallel_for(
+                    sycl::nd_range<3>(global_dims * block_dims, block_dims),
+                    [=](sycl::nd_item<3> item_ct1)
+                    [[sycl::reqd_sub_group_size(WARP_SIZE)]] {
+                        rms_norm_f32<true, true>(x, dst, ncols,
+                            src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+                            dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+                            eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size,
+                            mul, mul_stride_row, mul_stride_channel, mul_stride_sample, mul_nrows, mul_nchannels, mul_nsamples,
+                            add, add_stride_row, add_stride_channel, add_stride_sample, add_nrows, add_nchannels, add_nsamples);
+                    });
             });
+#ifdef rms_norm_mul_add_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
 }
 
@@ -553,12 +1145,16 @@ static void l2_norm_f32_sycl(const float *   x,
                              const float     eps,
                              queue_ptr       stream,
                              int             device) {
+    GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nrows:%d nchannels:%d nsamples:%d\n", __func__, ncols, nrows, nchannels, nsamples);
     const dpct::dim3 blocks_num(nrows, nchannels, nsamples);
 
     if (ncols < 1024) {
         const dpct::dim3 block_dims(warp_size, 1, 1);
-        stream->submit([&](sycl::handler& cgh) {
-            cgh.parallel_for(
+#ifdef l2_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->parallel_for(
                 sycl::nd_range<3>(blocks_num * block_dims,
                     block_dims),
                 [=](sycl::nd_item<3> item_ct1)
@@ -569,28 +1165,37 @@ static void l2_norm_f32_sycl(const float *   x,
                         eps, item_ct1,
                         nullptr, warp_size);
                 });
-            });
+#ifdef l2_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
     else {
         const int work_group_size = ggml_sycl_info().max_work_group_sizes[device];
         assert(work_group_size % (warp_size * warp_size) == 0);
         const sycl::range<3> block_dims(1, 1, work_group_size);
         int lsm_size =  block_dims[2] > warp_size ? work_group_size / warp_size * sizeof(float): 0;
-        stream->submit([&](sycl::handler& cgh) {
-            sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(lsm_size),
-                cgh);
+#ifdef l2_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().WaitForSubmit();
+        auto e =
+#endif
+            stream->submit([&](sycl::handler& cgh) {
+                sycl::local_accessor<float, 1> s_sum_acc_ct1(sycl::range<1>(lsm_size),
+                    cgh);
 
-            cgh.parallel_for(
-                sycl::nd_range<3>(blocks_num * block_dims,
-                    block_dims),
-                [=](sycl::nd_item<3> item_ct1)
-                [[sycl::reqd_sub_group_size(warp_size)]] {
-                    l2_norm_f32<warp_size>(x, dst, ncols,
-                        src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
-                        dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
-                        eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size);
-                });
+                cgh.parallel_for(
+                    sycl::nd_range<3>(blocks_num * block_dims,
+                        block_dims),
+                    [=](sycl::nd_item<3> item_ct1)
+                    [[sycl::reqd_sub_group_size(warp_size)]] {
+                        l2_norm_f32<warp_size>(x, dst, ncols,
+                            src_stride_col, src_stride_row, src_stride_channel, src_stride_sample,
+                            dst_stride_col, dst_stride_row, dst_stride_channel, dst_stride_sample,
+                            eps, item_ct1, get_pointer(s_sum_acc_ct1), work_group_size);
+                    });
             });
+#ifdef l2_norm_f32_sycl_UseEventWatcher
+        SyclQueueEventWatcher::getInstance().SetEvent(e);
+#endif
     }
 }
 
@@ -640,14 +1245,16 @@ template <int warp_size>
 static void l2_norm_f32_batch_sycl(l2_batch_ptrs p, l2_batch_strides st, const int n_tensors,
                                    const int ncols, const int nrows_total, const float eps,
                                    queue_ptr stream) {
+    GGML_SYCL_DEBUG("[SYCL] %s ncols:%d nrows_total:%d\n", __func__, ncols, nrows_total);
     const dpct::dim3 blocks_num(nrows_total, 1, n_tensors);
     const dpct::dim3 block_dims(warp_size, 1, 1);
-    stream->submit([&](sycl::handler & cgh) {
-        cgh.parallel_for(sycl::nd_range<3>(blocks_num * block_dims, block_dims),
+    //SyclQueueEventWatcher::getInstance().WaitForSubmit();
+    //auto e =
+        stream->parallel_for(sycl::nd_range<3>(blocks_num * block_dims, block_dims),
             [=](sycl::nd_item<3> item_ct1) [[sycl::reqd_sub_group_size(warp_size)]] {
                 l2_norm_f32_batch<warp_size>(p, st, ncols, eps, item_ct1);
             });
-    });
+    //SyclQueueEventWatcher::getInstance().SetEvent(e);
 }
 
 void ggml_sycl_op_norm(ggml_backend_sycl_context& ctx, ggml_tensor* dst) {
@@ -679,6 +1286,7 @@ void ggml_sycl_op_norm(ggml_backend_sycl_context& ctx, ggml_tensor* dst) {
     const int64_t ds3 = nb3 / tdst;
 
     norm_f32_sycl(src0_dd, dst_dd, ne00, ne01, ne02, ne03,
+    //norm_f32_warp_sycl(src0_dd, dst_dd, ne00, ne01, ne02, ne03,
         ss0, ss1, ss2, ss3, ds0, ds1, ds2, ds3, eps, main_stream, ctx.device);
 }
 
@@ -959,6 +1567,8 @@ void ggml_sycl_op_rms_norm_back(ggml_backend_sycl_context & ctx, ggml_tensor * d
     int WG = std::max(WARP_SIZE, std::min(roundup((int)std::min<int64_t>(D, wg_cap), WARP_SIZE), wg_cap));
 
     // FP32 path: per-thread compensated accumulation + hierarchical reduction
+    //SyclQueueEventWatcher::getInstance().WaitForSubmit();
+    //auto e =
     q->submit([&](sycl::handler &cgh) {
         const int nwarps_loc = std::max(1, WG / WARP_SIZE);
         // store one partial value per warp (xx and xg) for cross-warp reduction
@@ -1071,6 +1681,7 @@ void ggml_sycl_op_rms_norm_back(ggml_backend_sycl_context & ctx, ggml_tensor * d
                 }
             });
     });
+    //SyclQueueEventWatcher::getInstance().SetEvent(e);
 
 }
 
