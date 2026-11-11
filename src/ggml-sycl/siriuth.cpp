@@ -160,13 +160,14 @@ void SyclQueueEventWatcher::WaitForSubmit()
 
         }
 */
-    //if(events.capacity() > events.size() + 10){
-    if(events.capacity() > SYCL_EVENTS_SIZE){
-        const size_t cap = events.capacity();
-        events.shrink_to_fit();
-        //std::vector<sycl::event>().swap(events);
-        GGML_SYCL_DEBUG("[SYCL] %s events.capacity:%ld -> %ld\n", __func__, cap, events.capacity();
-    }
+    ////if(events.capacity() > events.size() + 10){
+    ////if(events.capacity() > SYCL_EVENTS_SIZE){
+    //if(events.capacity() - events.size() > SYCL_EVENTS_SIZE){
+    //    const size_t cap = events.capacity();
+    //    events.shrink_to_fit();
+    //    //std::vector<sycl::event>().swap(events);
+    //    GGML_SYCL_DEBUG("[SYCL] %s events.capacity:%ld -> %ld\n", __func__, cap, events.capacity());
+    //}
 }
 
 // 要素数が多いもの順で並べる
