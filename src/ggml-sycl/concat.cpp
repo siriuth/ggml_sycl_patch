@@ -300,19 +300,15 @@ static void concat_T_sycl(const T *x, const T *y, T *dst,
 }
 
 // non-contiguous kernel (slow)
-/*
 template<typename T>
 static void concat_T_sycl_non_cont(
     queue_ptr stream, const char *src0, const char *src1, char *dst,
-    int64_t ne00, int64_t ne01, int64_t ne02, int64_t ne03,
-    uint64_t nb00, uint64_t nb01, uint64_t nb02, uint64_t nb03,
-    //int64_t ne10, int64_t ne11, int64_t ne12, int64_t ne13,
-    int64_t, int64_t, int64_t, int64_t,
-    uint64_t nb10,
+    int64_t ne00, int64_t ne01, int64_t ne02, int64_t ne03, uint64_t nb00,
+    uint64_t nb01, uint64_t nb02, uint64_t nb03, int64_t /*ne10*/,
+    int64_t /*ne11*/, int64_t /*ne12*/, int64_t /*ne13*/, uint64_t nb10,
     uint64_t nb11, uint64_t nb12, uint64_t nb13, int64_t ne0, int64_t ne1,
     int64_t ne2, int64_t ne3, uint64_t nb0, uint64_t nb1, uint64_t nb2,
     uint64_t nb3, int32_t dim) {
-    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
   sycl::range<3> gridDim(ne3, ne2, ne1);
 
   // Avoid oversubscribing device when there is not enough elements along the innermost dim to
@@ -322,7 +318,6 @@ static void concat_T_sycl_non_cont(
   const int64_t block_ne0 = ne0_pad < SYCL_CONCAT_BLOCK_SIZE ? ne0_pad : (int64_t) SYCL_CONCAT_BLOCK_SIZE;
   sycl::range<3> blockDim(1, 1, block_ne0);
 
-  //stream->parallel_for(sycl::nd_range<3>(gridDim, sycl::range<3>(1, 1, 1)), [=](sycl::nd_item<3> item_ct1) {
   stream->parallel_for(sycl::nd_range<3>(gridDim * blockDim, blockDim), [=](sycl::nd_item<3> item_ct1) {
       int64_t i3 = item_ct1.get_group(0);
       int64_t i2 = item_ct1.get_group(1);
@@ -347,7 +342,6 @@ static void concat_T_sycl_non_cont(
       }
   });
 }
-*/
 /*
 template<typename T>
 //static __dpct_inline__ void concat_T_non_cont_offset( // inline展開は意味がない可能性…
@@ -700,11 +694,10 @@ static void concat_T_sycl_non_cont_offset(
 
 
 template <typename T>
-void concat_impl_sycl(ggml_backend_sycl_context & ctx, ggml_tensor *dst)
-{
+void concat_impl_sycl(ggml_backend_sycl_context & ctx, ggml_tensor *dst) {
     // この処理ggmlのソースの配列が入れ替わってたら多分アウトのような気がする。
     // ちゃんと条件見てるのかな？
-    GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
+    //GGML_SYCL_DEBUG("[SYCL] %s\n", __func__);
     scope_op_debug_print scope_dbg_print(__func__, dst, /*num_src=*/2);
     const ggml_tensor *  src0   = dst->src[0];
     const ggml_tensor *  src1   = dst->src[1];
