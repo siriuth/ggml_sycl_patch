@@ -899,7 +899,8 @@ static void convert_unary_nc_one_offset(
 
     const size_t i = item_ct1.get_global_id(0) + offset;
     const src_t * x = static_cast<const src_t *>(vx);
-    y[i] = static_cast<dst_t>(x[i]);
+    //y[i] = static_cast<dst_t>(x[i]);
+    y[i] = ggml_sycl_cast<dst_t>(x[i]);
 }
 
 /*
