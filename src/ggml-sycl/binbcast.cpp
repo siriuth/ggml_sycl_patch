@@ -144,7 +144,11 @@ static void k_bin_bcast_one_sd(const src0_t * src0, const src1_t * src1, dst_t *
     const src1_t * src1_row = src1 + (i3 % ne1[3])*s1[3] + (i2 % ne1[2])*s1[2] + (i1 % ne1[1])*s1[1] + (i0 % ne1[0])*s1[0];
     dst_t * dst_row = dst + i3*s[3]  +  i2*s[2]  +  i1*s[1]  +  i0*s[0];
 
-    *(dst_row) = (dst_t)bin_op(src0 ? (float)*(src0_row) : 0.0f, (float)*(src1_row));
+    //*(dst_row) = (dst_t)bin_op(src0 ? (float)*(src0_row) : 0.0f, (float)*(src1_row));
+    //*(dst_row) = ggml_sycl_cast<dst_t>bin_op(src0 ? ggml_sycl_cast<float>*(src0_row) : 0.0f, ggml_sycl_cast<float>*(src1_row));
+    const float a = src0 ? ggml_sycl_cast<float>(*src0_row) : 0.0f;
+    const float b = ggml_sycl_cast<float>(*src1_row);
+    *(dst_row) = ggml_sycl_cast<dst_t>(bin_op(a, b));
 }
 
 // 1次元特化型を作ってみよう…
@@ -167,7 +171,11 @@ static void k_bin_bcast_one_1d(const src0_t * src0, const src1_t * src1, dst_t *
     const src1_t * src1_row = src1 + (i0 % ne1[0])*s1[0];
     dst_t * dst_row = dst + i0*s[0];
 
-    *(dst_row) = (dst_t)bin_op(src0 ? (float)*(src0_row) : 0.0f, (float)*(src1_row));
+    //*(dst_row) = (dst_t)bin_op(src0 ? (float)*(src0_row) : 0.0f, (float)*(src1_row));
+    //*(dst_row) = ggml_sycl_cast<dst_t>bin_op(src0 ? ggml_sycl_cast<float>*(src0_row) : 0.0f, ggml_sycl_cast<float>*(src1_row));
+    const float a = src0 ? ggml_sycl_cast<float>(*src0_row) : 0.0f;
+    const float b = ggml_sycl_cast<float>(*src1_row);
+    *(dst_row) = ggml_sycl_cast<dst_t>(bin_op(a, b));
 }
 
 //// 3次元まで。
@@ -293,7 +301,8 @@ template<float (*bin_op)(const float, const float), typename src0_t, typename sr
 static void k_bin_bcast_unravel(const src0_t * src0, const src1_t * src1, dst_t * dst,
         int ne0, int ne1, int ne2, int ne3,
         int ne11, int ne12, int ne13,
-        /*int s0, */ int s1,  int s2,  int s3,
+        //int s0,
+        int s1,  int s2,  int s3,
         int s00, int s01, int s02, int s03,
         int s10, int s11, int s12, int s13,
         const sycl::uint3 ne10_fd,
